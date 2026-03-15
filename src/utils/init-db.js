@@ -31,6 +31,7 @@ function initDatabase() {
       email VARCHAR(255) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
       name VARCHAR(100) NOT NULL,
+      avatar VARCHAR(255),                -- 用户头像 URL
       role VARCHAR(20) DEFAULT 'user' CHECK(role IN ('super_admin', 'activity_admin', 'user')),
       is_seed BOOLEAN DEFAULT 0,
       invite_code VARCHAR(50),              -- 活动管理员的邀请码
@@ -40,6 +41,14 @@ function initDatabase() {
       FOREIGN KEY (activity_admin_id) REFERENCES users(id)
     )
   `);
+
+  // 为 users 表添加 avatar 列（旧数据库升级）
+  const usersTableInfo = db.pragma('table_info(users)');
+  const hasAvatar = usersTableInfo.some(col => col.name === 'avatar');
+  if (!hasAvatar) {
+    db.exec(`ALTER TABLE users ADD COLUMN avatar VARCHAR(255)`);
+    console.log('✓ 已为 users 表添加 avatar 列');
+  }
 
   // 时间申报表 - 记录用户未来 14 天的可用时间
   db.exec(`

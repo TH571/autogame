@@ -86,11 +86,7 @@ function showMainApp() {
   document.getElementById('navbar').style.display = 'flex';
 
   // 更新用户信息
-  const roleText = currentUser.role === 'super_admin' ? '超级管理员' 
-    : currentUser.role === 'activity_admin' ? '活动管理员'
-    : currentUser.isSeed ? '种子选手' : '用户';
-  
-  document.getElementById('userInfo').textContent = `${currentUser.name} (${roleText})`;
+  updateUserInfo();
 
   // 显示管理员链接（超级管理员和活动管理员）
   if (currentUser.role === 'super_admin' || currentUser.role === 'activity_admin') {
@@ -1647,3 +1643,148 @@ const originalDOMContentLoaded = document.addEventListener('DOMContentLoaded', (
   setupEventListeners();
   checkUrlForInviteCode();
 });
+
+// ========== 个人中心 ==========
+
+let currentUserData = null;
+
+// 显示个人中心
+async function showProfileModal() {
+  try {
+    const userData = await apiRequest('/auth/me');
+    currentUserData = userData.user;
+    
+    document.getElementById('profileEmail').value = currentUserData.email;
+    document.getElementById('profileName').value = currentUserData.name;
+    document.getElementById('profileRole').value = getRoleText(currentUserData.role);
+    
+    // 设置头像
+    const avatarUrl = currentUserData.avatar || getAvatarFromEmail(currentUserData.email);
+    document.getElementById('profileAvatar').src = avatarUrl;
+    
+    // 清空密码字段
+    document.getElementById('profilePassword').value = '';
+    document.getElementById('profilePasswordConfirm').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+    modal.show();
+  } catch (error) {
+    showToast('获取个人信息失败：' + error.message, 'danger');
+  }
+}
+
+// 获取角色文本
+function getRoleText(role) {
+  const map = {
+    'super_admin': '超级管理员',
+    'activity_admin': '活动管理员',
+    'user': '普通用户'
+  };
+  return map[role] || role;
+}
+
+// 从邮箱生成默认头像
+function getAvatarFromEmail(email) {
+  const hash = email.toLowerCase().trim();
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&background=random&size=120`;
+}
+
+// 上传头像
+async function uploadAvatar() {
+  const fileInput = document.getElementById('avatarInput');
+  const file = fileInput.files[0];
+  
+  if (!file) return;
+  
+  // 检查文件类型
+  if (!file.type.startsWith('image/')) {
+    showToast('请选择图片文件', 'warning');
+    return;
+  }
+  
+  // 检查文件大小（最大 2MB）
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('图片大小不能超过 2MB', 'warning');
+    return;
+  }
+  
+  try {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    const response = await fetch('/api/auth/avatar', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${userToken}`
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.avatarUrl) {
+      document.getElementById('profileAvatar').src = data.avatarUrl;
+      currentUserData.avatar = data.avatarUrl;
+      showToast('头像上传成功', 'success');
+    }
+  } catch (error) {
+    showToast('头像上传失败：' + error.message, 'danger');
+  }
+}
+
+// 保存个人信息
+async function saveProfile() {
+  const name = document.getElementById('profileName').value.trim();
+  const password = document.getElementById('profilePassword').value;
+  const passwordConfirm = document.getElementById('profilePasswordConfirm').value;
+  
+  if (!name) {
+    showToast('姓名不能为空', 'warning');
+    return;
+  }
+  
+  // 验证密码
+  if (password) {
+    if (password.length < 6) {
+      showToast('密码长度至少 6 位', 'warning');
+      return;
+    }
+    
+    if (password !== passwordConfirm) {
+      showToast('两次输入的密码不一致', 'warning');
+      return;
+    }
+  }
+  
+  try {
+    const data = { name };
+    if (password) {
+      data.password = password;
+    }
+    
+    await apiRequest('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+    
+    showToast('个人信息更新成功', 'success');
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('profileModal'));
+    modal.hide();
+    
+    // 更新导航栏用户信息
+    currentUser.name = name;
+    updateUserInfo();
+  } catch (error) {
+    showToast('更新失败：' + error.message, 'danger');
+  }
+}
+
+// 更新导航栏用户信息
+function updateUserInfo() {
+  const roleText = currentUser.role === 'super_admin' ? '超级管理员' 
+    : currentUser.role === 'activity_admin' ? '活动管理员'
+    : currentUser.isSeed ? '种子选手' : '用户';
+  
+  document.getElementById('userInfo').textContent = `${currentUser.name} (${roleText})`;
+}

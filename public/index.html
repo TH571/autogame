@@ -43,6 +43,9 @@
         </ul>
         <div class="d-flex align-items-center">
           <span class="navbar-text me-3" id="userInfo"></span>
+          <button class="btn btn-outline-light btn-sm me-2" onclick="showProfileModal()">
+            <i class="bi bi-person-circle"></i> 个人中心
+          </button>
           <button class="btn btn-outline-light btn-sm" id="logoutBtn">
             <i class="bi bi-box-arrow-right"></i> 退出
           </button>
@@ -705,6 +708,60 @@
             <div id="qrcodeContainer" class="border rounded p-3 bg-light"></div>
             <small class="text-muted">扫描二维码快速注册</small>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 个人中心模态框 -->
+  <div class="modal fade" id="profileModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">个人中心</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="text-center mb-4">
+            <div class="position-relative d-inline-block">
+              <img src="" id="profileAvatar" alt="头像" class="rounded-circle" width="120" height="120" style="object-fit: cover; background: #f0f0f0;">
+              <button class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" onclick="document.getElementById('avatarInput').click()" style="width: 36px; height: 36px;">
+                <i class="bi bi-camera"></i>
+              </button>
+            </div>
+            <input type="file" id="avatarInput" accept="image/*" style="display: none;" onchange="uploadAvatar()">
+            <p class="text-muted mt-2 mb-0">点击头像更换</p>
+          </div>
+          
+          <form id="profileForm">
+            <div class="mb-3">
+              <label class="form-label">邮箱</label>
+              <input type="email" class="form-control" id="profileEmail" readonly>
+              <div class="form-text">邮箱不可修改</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">姓名</label>
+              <input type="text" class="form-control" id="profileName" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">角色</label>
+              <input type="text" class="form-control" id="profileRole" readonly>
+            </div>
+            <hr>
+            <div class="mb-3">
+              <label class="form-label">新密码</label>
+              <input type="password" class="form-control" id="profilePassword" placeholder="留空表示不修改">
+              <div class="form-text">长度至少 6 位</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">确认新密码</label>
+              <input type="password" class="form-control" id="profilePasswordConfirm" placeholder="再次输入新密码">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" onclick="saveProfile()">保存修改</button>
         </div>
       </div>
     </div>

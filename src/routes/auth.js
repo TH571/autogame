@@ -1,11 +1,45 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const User = require('../models/User');
 const { authMiddleware } = require('../middleware/auth');
 require('dotenv').config();
 
 const router = express.Router();
+
+// 配置 multer 存储
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../public/avatars');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + req.user.id + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('只支持图片文件（jpg, png, gif）'));
+    }
+  }
+});
 
 // 用户注册
 router.post('/register', async (req, res) => {
@@ -241,6 +275,27 @@ router.put('/me', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('更新用户信息错误:', error);
     res.status(500).json({ error: '更新失败，请稍后重试' });
+  }
+});
+
+// 上传头像
+router.post('/avatar', authMiddleware, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: '请选择要上传的图片' });
+    }
+    
+    // 保存头像 URL 到数据库
+    const avatarUrl = `/avatars/${req.file.filename}`;
+    User.update(req.user.id, { avatar: avatarUrl });
+    
+    res.json({
+      message: '头像上传成功',
+      avatarUrl
+    });
+  } catch (error) {
+    console.error('上传头像错误:', error);
+    res.status(500).json({ error: error.message || '上传失败' });
   }
 });
 
