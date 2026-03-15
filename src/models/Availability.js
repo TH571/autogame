@@ -6,24 +6,24 @@ class AvailabilityModel {
   }
 
   // 添加可用时间
-  add(userId, date, timeSlot) {
+  add(userId, date, timeSlot, activityCode = null) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified, activity_code)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
     `);
-    return stmt.run(userId, date, timeSlot);
+    return stmt.run(userId, date, timeSlot, activityCode);
   }
 
   // 批量添加可用时间
   addBatch(userId, availabilities) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified, activity_code)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
     `);
 
     const insertMany = this.db.transaction((userId, availabilities) => {
       for (const av of availabilities) {
-        stmt.run(userId, av.date, av.timeSlot);
+        stmt.run(userId, av.date, av.timeSlot, av.activityCode || null);
       }
     });
 
@@ -42,7 +42,7 @@ class AvailabilityModel {
   // 获取用户的可用时间
   getByUser(userId) {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, date, time_slot, created_at, last_modified
+      SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified
       FROM availability
       WHERE user_id = ?
       ORDER BY date, time_slot
@@ -50,16 +50,45 @@ class AvailabilityModel {
     return stmt.all(userId);
   }
 
+  // 获取用户在活动代码中的可用时间
+  getByUserAndCode(userId, activityCode) {
+    const stmt = this.db.prepare(`
+      SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified
+      FROM availability
+      WHERE user_id = ? AND activity_code = ?
+      ORDER BY date, time_slot
+    `);
+    return stmt.all(userId, activityCode);
+  }
+
   // 获取指定日期和时间段的所有可用用户
-  getByDateAndSlot(date, timeSlot) {
+  getByDateAndSlot(date, timeSlot, activityCode = null) {
+    let sql = `
+      SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot, a.activity_code
+      FROM availability a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.date = ? AND a.time_slot = ?
+    `;
+    
+    if (activityCode) {
+      sql += ` AND a.activity_code = ?`;
+      return this.db.prepare(sql).all(date, timeSlot, activityCode);
+    }
+    
+    sql += ` ORDER BY u.id`;
+    return this.db.prepare(sql).all(date, timeSlot);
+  }
+
+  // 获取活动代码中指定日期和时间段的所有可用用户
+  getByDateSlotAndCode(date, timeSlot, activityCode) {
     const stmt = this.db.prepare(`
       SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot
       FROM availability a
       JOIN users u ON a.user_id = u.id
-      WHERE a.date = ? AND a.time_slot = ?
+      WHERE a.date = ? AND a.time_slot = ? AND a.activity_code = ?
       ORDER BY u.id
     `);
-    return stmt.all(date, timeSlot);
+    return stmt.all(date, timeSlot, activityCode);
   }
 
   // 获取未来 14 天某时间段的所有可用用户

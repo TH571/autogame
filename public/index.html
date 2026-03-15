@@ -126,6 +126,15 @@
             <br><small>时间说明：下午 (14:00-18:00)、晚上 (19:00-22:00)、下午连晚上 (全天)</small>
           </div>
           
+          <!-- 活动代码选择 -->
+          <div class="mb-3">
+            <label class="form-label"><strong>活动代码</strong> <span class="text-danger">*</span></label>
+            <select class="form-select" id="activityCodeSelect" required>
+              <option value="">-- 请选择活动代码 --</option>
+            </select>
+            <div class="form-text">您只能为已分配的活动代码申报时间</div>
+          </div>
+          
           <div class="text-end mb-3">
             <button class="btn btn-primary" onclick="submitAvailability()">
               <i class="bi bi-check-lg"></i> 提交申报
@@ -208,10 +217,39 @@
             </div>
           </div>
 
+          <!-- 活动代码管理 -->
+          <div class="mt-4">
+            <div class="card">
+              <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-qr-code"></i> 活动代码管理</h6>
+                <button class="btn btn-light btn-sm" onclick="showCreateCodeModal()">
+                  <i class="bi bi-plus-lg"></i> 创建活动代码
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>描述</th>
+                        <th>用户数</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="activityCodeList"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h6 class="mb-0">用户列表</h6>
-              <input type="text" class="form-control form-control-sm w-25" id="userSearch" 
+              <input type="text" class="form-control form-control-sm w-25" id="userSearch"
                      placeholder="搜索用户..." oninput="filterUsers()">
             </div>
             <div class="table-responsive">
@@ -337,6 +375,67 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
             <button type="button" class="btn btn-danger" onclick="confirmDeleteUser()">删除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建活动代码模态框 -->
+    <div class="modal fade" id="activityCodeModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="activityCodeModalTitle">创建活动代码</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="activityCodeForm">
+              <input type="hidden" id="editCodeId">
+              <div class="mb-3">
+                <label class="form-label">活动代码 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="activityCode" required placeholder="如：BASKETBALL-2024">
+                <div class="form-text">英文大写字母和数字，创建后不可修改</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">活动名称 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="activityName" required placeholder="如：篮球活动">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">活动描述</label>
+                <textarea class="form-control" id="activityDescription" rows="3" placeholder="活动描述..."></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" onclick="saveActivityCode()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分配用户模态框 -->
+    <div class="modal fade" id="assignUserModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">分配用户 - <span id="assignCodeName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">选择用户</label>
+              <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;" id="userCheckboxes">
+                <!-- 用户复选框将在这里生成 -->
+              </div>
+            </div>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle"></i> 已分配的用户将可以为该活动代码申报时间
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" onclick="saveAssignedUsers()">保存分配</button>
           </div>
         </div>
       </div>

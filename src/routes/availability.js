@@ -34,10 +34,14 @@ router.get('/', authMiddleware, (req, res) => {
 // 提交可用时间（单个）
 router.post('/', authMiddleware, (req, res) => {
   try {
-    const { date, timeSlot } = req.body;
+    const { date, timeSlot, activityCode } = req.body;
 
     if (!date || !timeSlot) {
       return res.status(400).json({ error: '日期和时间段不能为空' });
+    }
+
+    if (!activityCode) {
+      return res.status(400).json({ error: '活动代码为必填项' });
     }
 
     // 验证日期格式
@@ -51,6 +55,18 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(400).json({ error: '时间段必须是 1(下午)、2(晚上) 或 3(下午连晚上)' });
     }
 
+    // 检查用户是否在该活动代码中
+    const ActivityCode = require('../models/ActivityCode');
+    const activityCodeRecord = ActivityCode.getByCode(activityCode);
+    if (!activityCodeRecord) {
+      return res.status(400).json({ error: '活动代码不存在' });
+    }
+
+    const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
+    if (!isInCode && req.user.role !== 'admin') {
+      return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
+    }
+
     // 检查是否可以修改（24 小时后悔期逻辑）
     const modifyStatus = Availability.canModify(req.user.id, date, timeSlot);
     if (!modifyStatus.canModify) {
@@ -61,7 +77,7 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(400).json({ error: errorMsg });
     }
 
-    Availability.add(req.user.id, date, timeSlot);
+    Availability.add(req.user.id, date, timeSlot, activityCode);
 
     res.json({
       message: '申报成功',
@@ -69,6 +85,7 @@ router.post('/', authMiddleware, (req, res) => {
         date,
         timeSlot,
         timeSlotText: getTimeSlotText(timeSlot),
+        activityCode,
         regretPeriod: modifyStatus.reason === 'regret_period'
       }
     });
@@ -81,10 +98,26 @@ router.post('/', authMiddleware, (req, res) => {
 // 批量提交可用时间
 router.post('/batch', authMiddleware, (req, res) => {
   try {
-    const { availabilities } = req.body;
+    const { availabilities, activityCode } = req.body;
+
+    if (!activityCode) {
+      return res.status(400).json({ error: '活动代码为必填项' });
+    }
 
     if (!Array.isArray(availabilities) || availabilities.length === 0) {
       return res.status(400).json({ error: '可用时间列表不能为空' });
+    }
+
+    // 检查用户是否在该活动代码中
+    const ActivityCode = require('../models/ActivityCode');
+    const activityCodeRecord = ActivityCode.getByCode(activityCode);
+    if (!activityCodeRecord) {
+      return res.status(400).json({ error: '活动代码不存在' });
+    }
+
+    const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
+    if (!isInCode && req.user.role !== 'admin') {
+      return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 
     const validAvailabilities = [];
@@ -123,7 +156,8 @@ router.post('/batch', authMiddleware, (req, res) => {
 
       validAvailabilities.push({
         date: av.date,
-        timeSlot: av.timeSlot
+        timeSlot: av.timeSlot,
+        activityCode
       });
     }
 

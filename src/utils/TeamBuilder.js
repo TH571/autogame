@@ -2,16 +2,18 @@ const { getDb } = require('../utils/init-db');
 const Activity = require('../models/Activity');
 const Availability = require('../models/Availability');
 const User = require('../models/User');
+const ActivityCode = require('../models/ActivityCode');
 
 /**
  * 自动组队服务
- * 
+ *
  * 规则：
  * 1. 每队 4 人
  * 2. 种子选手必须参加每场活动
  * 3. 普通用户需轮流参与，避免连续被选
  * 4. ≥4 人有时空即可组队
  * 5. 保证每位用户在未来 14 天内至少参与一次（如果可能）
+ * 6. 只有相同活动代码的用户才会被组队
  */
 class TeamBuilderService {
   constructor() {
@@ -22,7 +24,7 @@ class TeamBuilderService {
    * 执行自动组队
    * 遍历未来 14 天，检查每个时间段，进行组队
    */
-  buildTeams() {
+  buildTeams(activityCode = null) {
     const results = [];
     const today = new Date();
     const endDate = new Date(today);
@@ -36,6 +38,9 @@ class TeamBuilderService {
     }
 
     console.log(`开始自动组队，种子选手：${seedUser.name} (${seedUser.email})`);
+    if (activityCode) {
+      console.log(`活动代码：${activityCode}`);
+    }
 
     // 遍历未来 14 天的每一天
     for (let i = 0; i < 14; i++) {
@@ -45,7 +50,7 @@ class TeamBuilderService {
 
       // 检查三个时间段
       for (let timeSlot = 1; timeSlot <= 3; timeSlot++) {
-        const result = this.buildTeamForSlot(dateStr, timeSlot, seedUser);
+        const result = this.buildTeamForSlot(dateStr, timeSlot, seedUser, activityCode);
         if (result) {
           results.push(result);
         }
@@ -59,9 +64,14 @@ class TeamBuilderService {
   /**
    * 为特定日期和时间段组建队伍
    */
-  buildTeamForSlot(date, timeSlot, seedUser) {
+  buildTeamForSlot(date, timeSlot, seedUser, activityCode = null) {
     // 获取该时间段所有可用的用户
-    const availableUsers = Availability.getByDateAndSlot(date, timeSlot);
+    let availableUsers;
+    if (activityCode) {
+      availableUsers = Availability.getByDateSlotAndCode(date, timeSlot, activityCode);
+    } else {
+      availableUsers = Availability.getByDateAndSlot(date, timeSlot);
+    }
     
     if (availableUsers.length < 4) {
       // 不足 4 人，无法组队

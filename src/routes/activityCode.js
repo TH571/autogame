@@ -1,0 +1,153 @@
+const express = require('express');
+const router = express.Router();
+const ActivityCode = require('../models/ActivityCode');
+const User = require('../models/User');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+
+// 获取所有活动代码（管理员）
+router.get('/codes', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const codes = ActivityCode.getAll();
+    res.json({ codes });
+  } catch (error) {
+    console.error('获取活动代码错误:', error);
+    res.status(500).json({ error: '获取活动代码失败' });
+  }
+});
+
+// 获取用户的活动代码
+router.get('/codes/my', authMiddleware, (req, res) => {
+  try {
+    const codes = ActivityCode.getCodesByUserId(req.user.id);
+    res.json({ codes });
+  } catch (error) {
+    console.error('获取用户活动代码错误:', error);
+    res.status(500).json({ error: '获取活动代码失败' });
+  }
+});
+
+// 创建活动代码（管理员）
+router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { code, name, description } = req.body;
+
+    if (!code || !name) {
+      return res.status(400).json({ error: '活动代码和名称不能为空' });
+    }
+
+    // 检查代码是否已存在
+    const existing = ActivityCode.getByCode(code);
+    if (existing) {
+      return res.status(400).json({ error: '活动代码已存在' });
+    }
+
+    const result = ActivityCode.create(code, name, description, req.user.id);
+
+    res.status(201).json({
+      message: '活动代码创建成功',
+      code: {
+        id: result.lastInsertRowid,
+        code,
+        name,
+        description
+      }
+    });
+  } catch (error) {
+    console.error('创建活动代码错误:', error);
+    res.status(500).json({ error: '创建活动代码失败' });
+  }
+});
+
+// 更新活动代码（管理员）
+router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: '名称不能为空' });
+    }
+
+    ActivityCode.update(id, name, description);
+
+    res.json({ message: '活动代码更新成功' });
+  } catch (error) {
+    console.error('更新活动代码错误:', error);
+    res.status(500).json({ error: '更新活动代码失败' });
+  }
+});
+
+// 删除活动代码（管理员）
+router.delete('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    ActivityCode.delete(id);
+    res.json({ message: '活动代码删除成功' });
+  } catch (error) {
+    console.error('删除活动代码错误:', error);
+    res.status(500).json({ error: '删除活动代码失败' });
+  }
+});
+
+// 获取活动代码的用户列表（管理员）
+router.get('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const users = ActivityCode.getUsersByCodeId(id);
+    res.json({ users });
+  } catch (error) {
+    console.error('获取用户列表错误:', error);
+    res.status(500).json({ error: '获取用户列表失败' });
+  }
+});
+
+// 为活动代码添加用户（管理员）
+router.post('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: '用户列表不能为空' });
+    }
+
+    ActivityCode.addUsersBatch(id, userIds);
+
+    res.json({ message: `成功添加 ${userIds.length} 名用户` });
+  } catch (error) {
+    console.error('添加用户错误:', error);
+    res.status(500).json({ error: '添加用户失败' });
+  }
+});
+
+// 从活动代码移除用户（管理员）
+router.delete('/codes/:id/users/:userId', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    ActivityCode.removeUser(id, userId);
+    res.json({ message: '用户已移除' });
+  } catch (error) {
+    console.error('移除用户错误:', error);
+    res.status(500).json({ error: '移除用户失败' });
+  }
+});
+
+// 获取所有用户（用于分配）
+router.get('/users/all', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const users = User.findAll();
+    const formattedUsers = users.map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      isSeed: u.is_seed === 1
+    }));
+    res.json({ users: formattedUsers });
+  } catch (error) {
+    console.error('获取用户列表错误:', error);
+    res.status(500).json({ error: '获取用户列表失败' });
+  }
+});
+
+module.exports = router;

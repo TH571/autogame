@@ -123,7 +123,7 @@ function initDatabase() {
     `).run(
       process.env.ADMIN_EMAIL || 'admin@autogame.com',
       hashedPassword,
-      '系统管理员',
+      '铁',
       'admin'
     );
     console.log('✓ 管理员账户已创建');
@@ -140,12 +140,50 @@ function initDatabase() {
     `).run(
       'seed@autogame.com',
       hashedPassword,
-      '种子选手',
+      '蚊子',
       'seed',
       1
     );
     console.log('✓ 种子选手账户已创建 (seed@autogame.com / seed123456)');
   }
+
+  // 创建活动代码表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code VARCHAR(50) UNIQUE NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description TEXT,
+      created_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  // 创建活动代码 - 用户关联表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_code_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_code_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(activity_code_id, user_id)
+    )
+  `);
+
+  // 为 availability 表添加 activity_code 列
+  const tableInfo2 = db.pragma('table_info(availability)');
+  const hasActivityCode = tableInfo2.some(col => col.name === 'activity_code');
+  if (!hasActivityCode) {
+    db.exec(`ALTER TABLE availability ADD COLUMN activity_code VARCHAR(50)`);
+    console.log('✓ 已添加 activity_code 列');
+  }
+
+  // 创建索引
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_availability_activity_code ON availability(activity_code)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_code_users ON activity_code_users(activity_code_id, user_id)`);
 
   console.log('✓ 数据库初始化完成');
   console.log(`✓ 数据库路径：${process.env.DATABASE_PATH || './data/autogame.db'}`);

@@ -6,6 +6,8 @@ let userToken = null;
 let selectedAvailabilities = [];
 let allUsers = []; // 缓存所有用户用于搜索
 let userToDelete = null; // 待删除的用户
+let myActivityCodes = []; // 用户的活动代码列表
+let currentCodeId = null; // 当前操作的活动代码 ID
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -117,6 +119,7 @@ function showPage(pageName) {
     // 加载对应数据
     switch(pageName) {
       case 'availability':
+        loadMyActivityCodes();
         loadAvailabilityDates();
         break;
       case 'activities':
@@ -200,6 +203,30 @@ function logout() {
   currentUser = null;
   showAuthPage();
   showToast('已退出登录', 'info');
+}
+
+// 加载用户的活动代码
+async function loadMyActivityCodes() {
+  try {
+    const data = await apiRequest('/activity/codes/my');
+    myActivityCodes = data.codes || [];
+    
+    const select = document.getElementById('activityCodeSelect');
+    select.innerHTML = '<option value="">-- 请选择活动代码 --</option>';
+    
+    myActivityCodes.forEach(code => {
+      const option = document.createElement('option');
+      option.value = code.code;
+      option.textContent = `${code.code} - ${code.name}`;
+      select.appendChild(option);
+    });
+    
+    if (myActivityCodes.length === 0) {
+      showToast('您还没有被分配到任何活动代码，请联系管理员', 'warning');
+    }
+  } catch (error) {
+    showToast('加载活动代码失败：' + error.message, 'danger');
+  }
 }
 
 // 加载日期列表
@@ -332,13 +359,34 @@ function toggleAvailability(cell) {
 
 // 提交申报
 async function submitAvailability() {
+  const activityCode = document.getElementById('activityCodeSelect').value;
+  
+  if (!activityCode) {
+    showToast('请选择活动代码', 'warning');
+    return;
+  }
+  
+  if (selectedAvailabilities.length === 0) {
+    showToast('请选择至少一个时间段', 'warning');
+    return;
+  }
+  
   try {
-    await apiRequest('/availability/batch', {
+    const data = await apiRequest('/availability/batch', {
       method: 'POST',
-      body: JSON.stringify({ availabilities: selectedAvailabilities })
+      body: JSON.stringify({ 
+        availabilities: selectedAvailabilities,
+        activityCode 
+      })
     });
     
-    showToast('申报成功！', 'success');
+    let msg = data.message || '申报成功';
+    if (data.regretPeriodCount) {
+      msg += ` - ${data.regretPeriodCount}条在 24 小时后悔期内`;
+    }
+    showToast(msg, 'success');
+    
+    loadMyActivityCodes();
     loadAvailabilityDates();
   } catch (error) {
     showToast('提交失败：' + error.message, 'danger');
@@ -451,12 +499,163 @@ async function loadAdminData() {
       </div>
     `;
     
+    // 加载活动代码
+    await loadActivityCodes();
+    
     // 用户列表
     const usersData = await apiRequest('/admin/users');
     allUsers = usersData.users;
     renderUserList(allUsers);
   } catch (error) {
     showToast('加载管理数据失败：' + error.message, 'danger');
+  }
+}
+
+// 加载活动代码列表
+async function loadActivityCodes() {
+  try {
+    const data = await apiRequest('/activity/codes');
+    const codes = data.codes || [];
+    
+    const tbody = document.getElementById('activityCodeList');
+    tbody.innerHTML = codes.map(code => `
+      <tr>
+        <td><strong>${code.code}</strong></td>
+        <td>${code.name}</td>
+        <td>${code.description || '-'}</td>
+        <td><span class="badge bg-primary">${code.user_count || 0}人</span></td>
+        <td><small class="text-muted">${formatDateCN(code.created_at)}</small></td>
+        <td>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
+              <i class="bi bi-people"></i>
+            </button>
+            <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    
+    if (codes.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+    }
+  } catch (error) {
+    showToast('加载活动代码失败：' + error.message, 'danger');
+  }
+}
+
+// 显示创建活动代码模态框
+function showCreateCodeModal() {
+  document.getElementById('activityCodeModalTitle').textContent = '创建活动代码';
+  document.getElementById('editCodeId').value = '';
+  document.getElementById('activityCode').value = '';
+  document.getElementById('activityCode').disabled = false;
+  document.getElementById('activityName').value = '';
+  document.getElementById('activityDescription').value = '';
+  
+  const modal = new bootstrap.Modal(document.getElementById('activityCodeModal'));
+  modal.show();
+}
+
+// 保存活动代码
+async function saveActivityCode() {
+  const codeId = document.getElementById('editCodeId').value;
+  const code = document.getElementById('activityCode').value.trim();
+  const name = document.getElementById('activityName').value.trim();
+  const description = document.getElementById('activityDescription').value.trim();
+  
+  if (!code || !name) {
+    showToast('活动代码和名称不能为空', 'danger');
+    return;
+  }
+  
+  try {
+    if (codeId) {
+      // 更新
+      await apiRequest(`/activity/codes/${codeId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, description })
+      });
+      showToast('活动代码更新成功', 'success');
+    } else {
+      // 创建
+      await apiRequest('/activity/codes', {
+        method: 'POST',
+        body: JSON.stringify({ code, name, description })
+      });
+      showToast('活动代码创建成功', 'success');
+    }
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('activityCodeModal'));
+    modal.hide();
+    loadActivityCodes();
+  } catch (error) {
+    showToast(error.message.includes('已存在') ? '活动代码已存在' : '操作失败：' + error.message, 'danger');
+  }
+}
+
+// 显示分配用户模态框
+async function showAssignUserModal(codeId, codeName) {
+  currentCodeId = codeId;
+  document.getElementById('assignCodeName').textContent = codeName;
+  
+  // 加载所有用户
+  const usersData = await apiRequest('/activity/users/all');
+  const allUsers = usersData.users || [];
+  
+  // 加载已分配的用户
+  const assignedData = await apiRequest(`/activity/codes/${codeId}/users`);
+  const assignedUserIds = new Set((assignedData.users || []).map(u => u.id));
+  
+  // 生成复选框
+  const container = document.getElementById('userCheckboxes');
+  container.innerHTML = allUsers.map(u => `
+    <div class="form-check">
+      <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user_${u.id}" ${assignedUserIds.has(u.id) ? 'checked' : ''}>
+      <label class="form-check-label" for="user_${u.id}">
+        ${u.name} (${u.email}) ${u.isSeed ? '<span class="badge seed-badge">种子</span>' : ''} ${u.role === 'admin' ? '<span class="badge bg-danger">管理</span>' : ''}
+      </label>
+    </div>
+  `).join('');
+  
+  const modal = new bootstrap.Modal(document.getElementById('assignUserModal'));
+  modal.show();
+}
+
+// 保存分配的用户
+async function saveAssignedUsers() {
+  if (!currentCodeId) return;
+  
+  const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+  const userIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  try {
+    await apiRequest(`/activity/codes/${currentCodeId}/users`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds })
+    });
+    
+    showToast('用户分配成功', 'success');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('assignUserModal'));
+    modal.hide();
+    loadActivityCodes();
+  } catch (error) {
+    showToast('分配失败：' + error.message, 'danger');
+  }
+}
+
+// 删除活动代码
+async function deleteActivityCode(codeId) {
+  if (!confirm('确定要删除该活动代码吗？相关的用户分配将被清除。')) return;
+  
+  try {
+    await apiRequest(`/activity/codes/${codeId}`, { method: 'DELETE' });
+    showToast('活动代码已删除', 'success');
+    loadActivityCodes();
+  } catch (error) {
+    showToast('删除失败：' + error.message, 'danger');
   }
 }
 

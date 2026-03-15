@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const availabilityRoutes = require('./routes/availability');
 const teamRoutes = require('./routes/team');
 const adminRoutes = require('./routes/admin');
+const activityCodeRoutes = require('./routes/activityCode');
 
 // 初始化数据库
 const { initDatabase } = require('./utils/init-db');
@@ -32,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/activity', activityCodeRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
