@@ -214,16 +214,9 @@ function logout() {
 // 加载用户的活动代码
 async function loadMyActivityCodes() {
   try {
-    // 获取所有活动代码
-    const allCodesData = await apiRequest('/activity/codes');
-    const allCodes = allCodesData.codes || [];
-    
     // 获取当前用户已加入的活动代码
     const myCodesData = await apiRequest('/activity/codes/my');
-    const myCodeIds = new Set((myCodesData.codes || []).map(c => c.id));
-    
-    // 过滤出用户已加入的活动代码
-    myActivityCodes = allCodes.filter(code => myCodeIds.has(code.id));
+    myActivityCodes = myCodesData.codes || [];
 
     const select = document.getElementById('activityCodeSelect');
     select.innerHTML = '<option value="">-- 请选择活动代码 --</option>';
