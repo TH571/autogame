@@ -3,16 +3,31 @@
  * 运行：node scripts/migrate-to-postgres.js
  */
 
-const { sql } = require('@vercel/postgres');
+// 加载环境变量
+require('dotenv').config({ path: '.env.local' });
+
+const { createClient } = require('@vercel/postgres');
 const bcrypt = require('bcryptjs');
 
 async function migrate() {
   console.log('开始迁移到 Vercel Postgres...\n');
+  
+  // 检查环境变量
+  if (!process.env.POSTGRES_URL) {
+    console.error('❌ 错误：未找到 POSTGRES_URL 环境变量');
+    console.error('请确保已运行 vercel env pull 或手动添加环境变量');
+    return;
+  }
 
+  // 创建数据库客户端
+  const client = createClient({
+    connectionString: process.env.POSTGRES_URL
+  });
+  
   try {
     // 创建用户表
     console.log('创建 users 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -26,11 +41,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `;
+    `);
 
     // 创建可用性表
     console.log('创建 availability 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS availability (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -42,11 +57,11 @@ async function migrate() {
         last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, date, time_slot)
       )
-    `;
+    `);
 
     // 创建活动表
     console.log('创建 activities 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS activities (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
@@ -55,11 +70,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(date, time_slot)
       )
-    `;
+    `);
 
     // 创建活动成员表
     console.log('创建 activity_members 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS activity_members (
         id SERIAL PRIMARY KEY,
         activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
@@ -69,11 +84,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(activity_id, user_id)
       )
-    `;
+    `);
 
     // 创建参与历史表
     console.log('创建 participation_history 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS participation_history (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -83,11 +98,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, activity_id)
       )
-    `;
+    `);
 
     // 创建活动代码表
     console.log('创建 activity_codes 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS activity_codes (
         id SERIAL PRIMARY KEY,
         code VARCHAR(50) UNIQUE NOT NULL,
@@ -101,11 +116,11 @@ async function migrate() {
         require_seed BOOLEAN DEFAULT true,
         seed_required BOOLEAN DEFAULT true
       )
-    `;
+    `);
 
     // 创建活动代码用户关联表
     console.log('创建 activity_code_users 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS activity_code_users (
         id SERIAL PRIMARY KEY,
         activity_code_id INTEGER REFERENCES activity_codes(id) ON DELETE CASCADE,
@@ -113,11 +128,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(activity_code_id, user_id)
       )
-    `;
+    `);
 
     // 创建活动代码种子选手关联表
     console.log('创建 activity_code_seeds 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS activity_code_seeds (
         id SERIAL PRIMARY KEY,
         activity_code_id INTEGER REFERENCES activity_codes(id) ON DELETE CASCADE,
@@ -125,11 +140,11 @@ async function migrate() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(activity_code_id, user_id)
       )
-    `;
+    `);
 
     // 创建管理员邀请码表
     console.log('创建 admin_invite_codes 表...');
-    await sql`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS admin_invite_codes (
         id SERIAL PRIMARY KEY,
         admin_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -138,18 +153,18 @@ async function migrate() {
         used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `;
+    `);
 
     // 创建索引
     console.log('创建索引...');
-    await sql`CREATE INDEX IF NOT EXISTS idx_availability_user_date ON availability(user_id, date)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_availability_activity_code ON availability(activity_code)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_activities_date_slot ON activities(date, time_slot, status)`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_activity_members_activity ON activity_members(activity_id)`;
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_availability_user_date ON availability(user_id, date)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_availability_activity_code ON availability(activity_code)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_activities_date_slot ON activities(date, time_slot, status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_activity_members_activity ON activity_members(activity_id)`);
 
     // 创建默认用户
     console.log('\n创建默认用户...');
-    await createDefaultUsers();
+    await createDefaultUsers(client);
 
     console.log('\n✅ Vercel Postgres 数据库迁移完成！\n');
     console.log('默认账户:');
@@ -158,17 +173,13 @@ async function migrate() {
 
   } catch (error) {
     console.error('\n❌ 迁移失败:', error.message);
-    if (error.message.includes('POSTGRES_URL')) {
-      console.error('\n请确保已在 Vercel 创建 Postgres 数据库并连接项目');
-      console.error('访问：https://vercel.com/dashboard → Storage → Add Database → Postgres\n');
-    }
     throw error;
   }
 }
 
-async function createDefaultUsers() {
+async function createDefaultUsers(client) {
   // 检查超级管理员
-  const superAdminCheck = await sql`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`;
+  const superAdminCheck = await client.query(`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`);
   if (superAdminCheck.rows.length === 0) {
     const hashedPassword = bcrypt.hashSync('admin123456', 10);
     const inviteCode = 'SUPER' + Date.now().toString(36).toUpperCase();
