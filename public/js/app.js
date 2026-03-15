@@ -477,9 +477,6 @@ async function loadAdminData() {
       </div>
     `;
 
-    // 加载活动代码
-    await loadActivityCodes();
-
     // 用户列表
     const usersData = await apiRequest('/admin/users');
     allUsers = usersData.users || [];
@@ -494,6 +491,9 @@ async function loadAdminData() {
     }
     
     renderUserList(allUsers);
+    
+    // 加载活动代码（在用户列表之后）
+    await loadActivityCodes();
   } catch (error) {
     showToast('加载管理数据失败：' + error.message, 'danger');
   }

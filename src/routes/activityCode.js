@@ -13,9 +13,12 @@ router.get('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
     // 超级管理员可以看到所有活动代码
     if (req.user.role === 'super_admin') {
       codes = ActivityCode.getAll();
+      console.log('超级管理员获取所有活动代码:', codes.length);
     } else {
       // 活动管理员只能看到自己创建的活动代码
-      codes = ActivityCode.getAll().filter(c => c.created_by === req.user.id);
+      const allCodes = ActivityCode.getAll();
+      codes = allCodes.filter(c => c.created_by === req.user.id);
+      console.log('活动管理员获取活动代码:', codes.length);
     }
     
     res.json({ codes });
