@@ -8,8 +8,8 @@ class AvailabilityModel {
   // 添加可用时间
   add(userId, date, timeSlot) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
     return stmt.run(userId, date, timeSlot);
   }
@@ -17,23 +17,23 @@ class AvailabilityModel {
   // 批量添加可用时间
   addBatch(userId, availabilities) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
-    
+
     const insertMany = this.db.transaction((userId, availabilities) => {
       for (const av of availabilities) {
         stmt.run(userId, av.date, av.timeSlot);
       }
     });
-    
+
     return insertMany(userId, availabilities);
   }
 
   // 删除可用时间
   remove(userId, date, timeSlot) {
     const stmt = this.db.prepare(`
-      DELETE FROM availability 
+      DELETE FROM availability
       WHERE user_id = ? AND date = ? AND time_slot = ?
     `);
     return stmt.run(userId, date, timeSlot);
@@ -42,9 +42,9 @@ class AvailabilityModel {
   // 获取用户的可用时间
   getByUser(userId) {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, date, time_slot, created_at 
-      FROM availability 
-      WHERE user_id = ? 
+      SELECT id, user_id, date, time_slot, created_at, last_modified
+      FROM availability
+      WHERE user_id = ?
       ORDER BY date, time_slot
     `);
     return stmt.all(userId);
@@ -78,7 +78,7 @@ class AvailabilityModel {
   // 检查用户在某日期时间段的可用性
   checkAvailability(userId, date, timeSlot) {
     const stmt = this.db.prepare(`
-      SELECT * FROM availability 
+      SELECT * FROM availability
       WHERE user_id = ? AND date = ? AND time_slot = ?
     `);
     return stmt.get(userId, date, timeSlot);
@@ -87,28 +87,71 @@ class AvailabilityModel {
   // 获取用户在某天所有时间段
   getByUserAndDate(userId, date) {
     const stmt = this.db.prepare(`
-      SELECT id, user_id, date, time_slot, created_at 
-      FROM availability 
+      SELECT id, user_id, date, time_slot, created_at, last_modified
+      FROM availability
       WHERE user_id = ? AND date = ?
       ORDER BY time_slot
     `);
     return stmt.all(userId, date);
   }
 
-  // 获取可修改的申报（3 天后的）
+  // 检查申报是否可以修改
+  // 规则：提交后 24 小时内可以修改任何时间，24 小时后只能修改 3 天后的时间
+  canModify(userId, date, timeSlot) {
+    const existing = this.checkAvailability(userId, date, timeSlot);
+    
+    if (!existing) {
+      // 新申报，可以添加
+      return { canModify: true, reason: '' };
+    }
+
+    const now = new Date();
+    const lastModified = new Date(existing.last_modified);
+    const hoursSinceLastModified = (now - lastModified) / (1000 * 60 * 60);
+
+    // 24 小时后悔期内，可以修改
+    if (hoursSinceLastModified < 24) {
+      return { canModify: true, reason: 'regret_period' };
+    }
+
+    // 24 小时后，只能修改 3 天后的日期
+    const inputDate = new Date(date);
+    const threeDaysLater = new Date(now);
+    threeDaysLater.setDate(now.getDate() + 3);
+    threeDaysLater.setHours(0, 0, 0, 0);
+
+    if (inputDate >= threeDaysLater) {
+      return { canModify: true, reason: 'future_date' };
+    }
+
+    return { 
+      canModify: false, 
+      reason: 'locked',
+      lastModified: existing.last_modified,
+      hoursRemaining: Math.ceil(24 - hoursSinceLastModified)
+    };
+  }
+
+  // 获取可修改的申报
   getModifiableAvailabilities(userId) {
     const stmt = this.db.prepare(`
-      SELECT * FROM availability 
-      WHERE user_id = ? AND date > date('now', '+3 days')
+      SELECT * FROM availability
+      WHERE user_id = ?
       ORDER BY date, time_slot
     `);
-    return stmt.all(userId);
+    const all = stmt.all(userId);
+    
+    // 过滤出可以修改的
+    return all.filter(a => {
+      const result = this.canModify(userId, a.date, a.time_slot);
+      return result.canModify;
+    });
   }
 
   // 清理过期的申报
   cleanupExpired() {
     const stmt = this.db.prepare(`
-      DELETE FROM availability 
+      DELETE FROM availability
       WHERE date < date('now')
     `);
     return stmt.run();

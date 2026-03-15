@@ -7,14 +7,22 @@ const { authMiddleware } = require('../middleware/auth');
 router.get('/', authMiddleware, (req, res) => {
   try {
     const availabilities = Availability.getByUser(req.user.id);
-    
-    // 格式化返回数据
-    const formattedData = availabilities.map(a => ({
-      date: a.date,
-      timeSlot: a.time_slot,
-      timeSlotText: getTimeSlotText(a.time_slot),
-      createdAt: a.created_at
-    }));
+
+    // 格式化返回数据，包含锁定状态
+    const formattedData = availabilities.map(a => {
+      const modifyStatus = Availability.canModify(req.user.id, a.date, a.time_slot);
+      return {
+        id: a.id,
+        date: a.date,
+        timeSlot: a.time_slot,
+        timeSlotText: getTimeSlotText(a.time_slot),
+        createdAt: a.created_at,
+        lastModified: a.last_modified,
+        isLocked: !modifyStatus.canModify,
+        lockReason: modifyStatus.reason,
+        hoursRemaining: modifyStatus.hoursRemaining || 0
+      };
+    });
 
     res.json({ availabilities: formattedData });
   } catch (error) {
@@ -43,32 +51,25 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(400).json({ error: '时间段必须是 1(下午)、2(晚上) 或 3(下午连晚上)' });
     }
 
-    // 检查是否是今天或明天或后天（不允许修改）
-    const today = new Date();
-    const inputDate = new Date(date);
-    const threeDaysLater = new Date(today);
-    threeDaysLater.setDate(today.getDate() + 3);
-    threeDaysLater.setHours(0, 0, 0, 0);
-
-    // 检查是否已经存在
-    const existing = Availability.checkAvailability(req.user.id, date, timeSlot);
-    if (existing) {
-      // 检查是否可以修改（3 天后）
-      if (inputDate < threeDaysLater) {
-        return res.status(400).json({ 
-          error: '只能修改 3 天后的申报，今天、明天和后天的申报不可修改' 
-        });
+    // 检查是否可以修改（24 小时后悔期逻辑）
+    const modifyStatus = Availability.canModify(req.user.id, date, timeSlot);
+    if (!modifyStatus.canModify) {
+      let errorMsg = '该时间段已锁定，无法修改';
+      if (modifyStatus.reason === 'locked' && modifyStatus.hoursRemaining > 0) {
+        errorMsg = `申报已锁定，${modifyStatus.hoursRemaining}小时后可修改`;
       }
+      return res.status(400).json({ error: errorMsg });
     }
 
     Availability.add(req.user.id, date, timeSlot);
 
-    res.json({ 
+    res.json({
       message: '申报成功',
       availability: {
         date,
         timeSlot,
-        timeSlotText: getTimeSlotText(timeSlot)
+        timeSlotText: getTimeSlotText(timeSlot),
+        regretPeriod: modifyStatus.reason === 'regret_period'
       }
     });
   } catch (error) {
@@ -86,14 +87,9 @@ router.post('/batch', authMiddleware, (req, res) => {
       return res.status(400).json({ error: '可用时间列表不能为空' });
     }
 
-    // 验证每个申报项
-    const today = new Date();
-    const threeDaysLater = new Date(today);
-    threeDaysLater.setDate(today.getDate() + 3);
-    threeDaysLater.setHours(0, 0, 0, 0);
-
     const validAvailabilities = [];
     const errors = [];
+    const regretPeriodCount = { count: 0, total: availabilities.length };
 
     for (const av of availabilities) {
       // 验证日期格式
@@ -109,14 +105,20 @@ router.post('/batch', authMiddleware, (req, res) => {
         continue;
       }
 
-      // 检查是否可以修改（针对已存在的申报）
-      const existing = Availability.checkAvailability(req.user.id, av.date, av.timeSlot);
-      if (existing) {
-        const inputDate = new Date(av.date);
-        if (inputDate < threeDaysLater) {
-          errors.push(`${av.date} 的申报不可修改（3 天内）`);
-          continue;
+      // 检查是否可以修改（24 小时后悔期逻辑）
+      const modifyStatus = Availability.canModify(req.user.id, av.date, av.timeSlot);
+      if (!modifyStatus.canModify) {
+        if (modifyStatus.reason === 'locked' && modifyStatus.hoursRemaining > 0) {
+          errors.push(`${av.date} ${getTimeSlotText(av.timeSlot)}: 已锁定 (${modifyStatus.hoursRemaining}小时后可修改)`);
+        } else {
+          errors.push(`${av.date} ${getTimeSlotText(av.timeSlot)}: 不可修改`);
         }
+        continue;
+      }
+
+      // 统计后悔期内的申报
+      if (modifyStatus.reason === 'regret_period') {
+        regretPeriodCount.count++;
       }
 
       validAvailabilities.push({
@@ -129,9 +131,15 @@ router.post('/batch', authMiddleware, (req, res) => {
       Availability.addBatch(req.user.id, validAvailabilities);
     }
 
+    let message = `成功提交 ${validAvailabilities.length} 条申报`;
+    if (regretPeriodCount.count > 0) {
+      message += `（其中 ${regretPeriodCount.count} 条在 24 小时后悔期内，可随时修改）`;
+    }
+
     res.json({
-      message: `成功提交 ${validAvailabilities.length} 条申报`,
+      message,
       successCount: validAvailabilities.length,
+      regretPeriodCount: regretPeriodCount.count > 0 ? regretPeriodCount.count : undefined,
       errors: errors.length > 0 ? errors : undefined
     });
   } catch (error) {
@@ -146,17 +154,14 @@ router.delete('/:date/:timeSlot', authMiddleware, (req, res) => {
     const { date, timeSlot } = req.params;
     const timeSlotNum = parseInt(timeSlot, 10);
 
-    // 检查是否可以删除（3 天后）
-    const today = new Date();
-    const inputDate = new Date(date);
-    const threeDaysLater = new Date(today);
-    threeDaysLater.setDate(today.getDate() + 3);
-    threeDaysLater.setHours(0, 0, 0, 0);
-
-    if (inputDate < threeDaysLater) {
-      return res.status(400).json({ 
-        error: '只能删除 3 天后的申报，今天、明天和后天的申报不可删除' 
-      });
+    // 检查是否可以删除（24 小时后悔期逻辑）
+    const modifyStatus = Availability.canModify(req.user.id, date, timeSlotNum);
+    if (!modifyStatus.canModify) {
+      let errorMsg = '该时间段已锁定，无法删除';
+      if (modifyStatus.reason === 'locked' && modifyStatus.hoursRemaining > 0) {
+        errorMsg = `申报已锁定，${modifyStatus.hoursRemaining}小时后可删除`;
+      }
+      return res.status(400).json({ error: errorMsg });
     }
 
     Availability.remove(req.user.id, date, timeSlotNum);
@@ -168,21 +173,54 @@ router.delete('/:date/:timeSlot', authMiddleware, (req, res) => {
   }
 });
 
-// 获取未来 14 天的日期列表
-router.get('/dates/next14', authMiddleware, (req, res) => {
+// 获取未来 14 天的日期列表（带锁定状态）
+router.get('/dates/next14', authMiddleware, async (req, res) => {
   try {
     const dates = [];
     const today = new Date();
+    
+    // 获取用户已有的申报
+    const userAvailabilities = Availability.getByUser(req.user.id);
+    const availMap = {};
+    userAvailabilities.forEach(a => {
+      const key = `${a.date}-${a.time_slot}`;
+      availMap[key] = a;
+    });
 
     for (let i = 0; i < 14; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      
-      dates.push({
-        date: formatDate(date),
+      const dateStr = formatDate(date);
+
+      // 检查这一天的申报状态
+      const dayStatus = {
+        date: dateStr,
         dayOfWeek: getDayOfWeek(date),
-        isModifiable: i >= 3 // 3 天后可修改
+        slots: {}
+      };
+
+      // 检查每个时间段
+      [1, 2, 3].forEach(slot => {
+        const key = `${dateStr}-${slot}`;
+        const existing = availMap[key];
+        
+        if (existing) {
+          const modifyStatus = Availability.canModify(req.user.id, dateStr, slot);
+          dayStatus.slots[slot] = {
+            exists: true,
+            isLocked: !modifyStatus.canModify,
+            hoursRemaining: modifyStatus.hoursRemaining || 0,
+            reason: modifyStatus.reason
+          };
+        } else {
+          dayStatus.slots[slot] = {
+            exists: false,
+            isLocked: false
+          };
+        }
       });
+
+      dates.push(dayStatus);
     }
 
     res.json({ dates });

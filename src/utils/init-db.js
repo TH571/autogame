@@ -48,6 +48,8 @@ function initDatabase() {
       -- time_slot: 1=下午，2=晚上，3=下午连晚上
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
+      -- last_modified: 记录最后一次修改时间，用于 24 小时后悔期
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(user_id, date, time_slot)
     )
@@ -98,9 +100,18 @@ function initDatabase() {
   // 创建索引
   db.exec(`CREATE INDEX IF NOT EXISTS idx_availability_user_date ON availability(user_id, date)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_availability_date_slot ON availability(date, time_slot)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_availability_last_modified ON availability(last_modified)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_activities_date_slot ON activities(date, time_slot, status)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_members_activity ON activity_members(activity_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_participation_user ON participation_history(user_id)`);
+
+  // 检查是否需要添加 last_modified 列（旧数据库升级）
+  const tableInfo = db.pragma('table_info(availability)');
+  const hasLastModified = tableInfo.some(col => col.name === 'last_modified');
+  if (!hasLastModified) {
+    db.exec(`ALTER TABLE availability ADD COLUMN last_modified DATETIME DEFAULT CURRENT_TIMESTAMP`);
+    console.log('✓ 已添加 last_modified 列');
+  }
 
   // 检查是否存在管理员账户
   const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin');
