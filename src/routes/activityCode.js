@@ -7,7 +7,17 @@ const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth'
 // 获取所有活动代码（管理员）
 router.get('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
-    const codes = ActivityCode.getAll();
+    const ActivityCode = require('../models/ActivityCode');
+    
+    let codes;
+    // 超级管理员可以看到所有活动代码
+    if (req.user.role === 'super_admin') {
+      codes = ActivityCode.getAll();
+    } else {
+      // 活动管理员只能看到自己创建的活动代码
+      codes = ActivityCode.getAll().filter(c => c.created_by === req.user.id);
+    }
+    
     res.json({ codes });
   } catch (error) {
     console.error('获取活动代码错误:', error);
