@@ -26,6 +26,12 @@
 - **前端**: HTML5 + CSS3 + JavaScript (Bootstrap 5)
 - **认证**: JWT + bcrypt
 
+## 在线演示
+
+**Vercel 部署地址**: https://autogame-psi.vercel.app
+
+> 注意：Vercel Serverless 环境使用临时存储，数据库在每次部署后重置。
+
 ## 快速开始
 
 ### 1. 安装依赖
