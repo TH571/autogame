@@ -27,15 +27,15 @@
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#" data-page="activities">
-              <i class="bi bi-trophy"></i> 活动结果
+              <i class="bi bi-trophy"></i> 组队结果
             </a>
           </li>
-          <li class="nav-item admin-only" style="display: none;">
+          <li class="nav-item admin-only admin-management-only" style="display: none;">
             <a class="nav-link" href="#" data-page="userManagement">
               <i class="bi bi-people"></i> 人员管理
             </a>
           </li>
-          <li class="nav-item admin-only" style="display: none;">
+          <li class="nav-item admin-only admin-management-only" style="display: none;">
             <a class="nav-link" href="#" data-page="activityManagement">
               <i class="bi bi-qr-code"></i> 活动管理
             </a>
@@ -381,7 +381,7 @@
           <h5 class="mb-0"><i class="bi bi-people"></i> 人员管理</h5>
           <div>
             <button class="btn btn-light btn-sm me-2" onclick="showInviteCodeModal()">
-              <i class="bi bi-qr-code"></i> 邀请码
+              <i class="bi bi-qr-code"></i> 成员注册邀请码
             </button>
             <button class="btn btn-light btn-sm" onclick="showCreateUserModalFromManagement()">
               <i class="bi bi-person-plus"></i> 新建用户
@@ -573,14 +573,31 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
+            <div class="alert alert-warning mb-3">
+              <i class="bi bi-star-fill"></i> <strong>种子选手</strong>：只有种子选手有空的时间段才会组织活动，可设置多个
+            </div>
+            
+            <!-- 快捷操作 -->
+            <div class="mb-3 d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllUsers()">
+                <i class="bi bi-check-all"></i> 全选
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllUsers()">
+                <i class="bi bi-x-lg"></i> 全不选
+              </button>
+            </div>
+            
+            <!-- 成员列表 -->
             <div class="mb-3">
-              <label class="form-label">选择用户</label>
-              <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;" id="userCheckboxes">
+              <label class="form-label fw-bold">
+                <i class="bi bi-people"></i> 成员选择
+              </label>
+              <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;" id="userCheckboxes">
                 <!-- 用户复选框将在这里生成 -->
               </div>
-            </div>
-            <div class="alert alert-info">
-              <i class="bi bi-info-circle"></i> 已分配的用户将可以为该活动代码申报时间
+              <div class="form-text mt-2">
+                <i class="bi bi-info-circle"></i> 勾选成员后，可同时将其设为种子选手
+              </div>
             </div>
           </div>
           <div class="modal-footer">

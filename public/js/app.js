@@ -88,10 +88,18 @@ function showMainApp() {
   // 更新用户信息
   updateUserInfo();
 
-  // 显示管理员链接（超级管理员和活动管理员）
-  if (currentUser.role === 'super_admin' || currentUser.role === 'activity_admin') {
+  // 根据角色显示/隐藏管理功能
+  const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
+  
+  // 显示管理员链接（只有管理员和活动管理员）
+  if (isAdmin) {
     document.querySelectorAll('.admin-only').forEach(el => {
       el.style.display = 'block';
+    });
+  } else {
+    // 普通用户隐藏管理功能
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = 'none';
     });
   }
 
@@ -849,7 +857,7 @@ async function saveActivityCode() {
 
   try {
     const rules = { minPlayers, maxPlayers, playersPerGame, requireSeed, seedRequired };
-    
+
     if (codeId) {
       // 更新 - 包含规则
       await apiRequest(`/activity/codes/${codeId}`, {
@@ -857,21 +865,49 @@ async function saveActivityCode() {
         body: JSON.stringify({ name, description, rules })
       });
       showToast('活动代码更新成功', 'success');
+      
+      const modalEl = document.getElementById('activityCodeModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+      
+      // 刷新列表
+      const activityManagementPage = document.getElementById('activityManagementPage');
+      if (activityManagementPage && !activityManagementPage.classList.contains('d-none')) {
+        await loadActivityManagement();
+      } else {
+        await loadActivityCodes();
+      }
     } else {
       // 创建 - 包含规则
-      await apiRequest('/activity/codes', {
+      const result = await apiRequest('/activity/codes', {
         method: 'POST',
         body: JSON.stringify({ code, name, description, rules })
       });
+      
       showToast('活动代码创建成功', 'success');
+      
+      // 关闭创建模态框
+      const modalEl = document.getElementById('activityCodeModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+      
+      // 刷新列表
+      const activityManagementPage = document.getElementById('activityManagementPage');
+      if (activityManagementPage && !activityManagementPage.classList.contains('d-none')) {
+        await loadActivityManagement();
+      } else {
+        await loadActivityCodes();
+      }
+      
+      // 自动弹出人员分配对话框，并默认选中创建者
+      // 使用返回的 code 信息或重新获取
+      setTimeout(async () => {
+        const newCode = result.code || { id: null, name: name };
+        if (newCode.id) {
+          showAssignUserModal(newCode.id, newCode.name || name, true);
+        }
+      }, 500);
     }
-
-    const modalEl = document.getElementById('activityCodeModal');
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
-
-    // 重新加载活动代码列表，显示最新数据
-    await loadActivityCodes();
   } catch (error) {
     console.error('保存活动代码错误:', error);
     showToast(error.message || '操作失败', 'danger');
@@ -879,31 +915,50 @@ async function saveActivityCode() {
 }
 
 // 显示分配用户模态框
-async function showAssignUserModal(codeId, codeName) {
+async function showAssignUserModal(codeId, codeName, selectCreator = false) {
   currentCodeId = codeId;
   document.getElementById('assignCodeName').textContent = codeName;
 
   try {
     // 加载所有用户
     const usersData = await apiRequest('/activity/users/all');
-    console.log('所有用户:', usersData);
     const allUsers = usersData.users || [];
 
     // 加载已分配的用户
     const assignedData = await apiRequest(`/activity/codes/${codeId}/users`);
-    console.log('已分配用户:', assignedData);
     const assignedUserIds = new Set((assignedData.users || []).map(u => u.id));
+    
+    // 加载已分配的种子选手
+    const seedsData = await apiRequest(`/activity/codes/${codeId}/seeds`);
+    const assignedSeedIds = new Set((seedsData.seeds || []).map(u => u.id));
 
-    // 生成复选框
+    // 生成用户复选框（带种子选手选项）
     const container = document.getElementById('userCheckboxes');
-    container.innerHTML = allUsers.map(u => `
-      <div class="form-check">
-        <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user_${u.id}" ${assignedUserIds.has(u.id) ? 'checked' : ''}>
-        <label class="form-check-label" for="user_${u.id}">
-          ${u.name} (${u.email}) ${u.isSeed ? '<span class="badge seed-badge">种子</span>' : ''} ${u.role === 'admin' ? '<span class="badge bg-danger">管理</span>' : ''}
-        </label>
+    container.innerHTML = allUsers.map(u => {
+      // 如果是创建者且 selectCreator 为 true，自动选中
+      const isChecked = assignedUserIds.has(u.id) || (selectCreator && u.id === currentUser.id);
+      const isSeed = assignedSeedIds.has(u.id);
+      
+      return `
+      <div class="mb-3 p-2 border-bottom">
+        <div class="form-check">
+          <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user_${u.id}" ${isChecked ? 'checked' : ''} onchange="toggleUserSeedOption(${u.id}, ${u.isSeed})">
+          <label class="form-check-label fw-bold" for="user_${u.id}">
+            ${u.name} 
+            <small class="text-muted">(${u.email})</small>
+            ${u.id === currentUser.id ? '<span class="badge bg-info ms-1">我</span>' : ''}
+          </label>
+        </div>
+        <div class="ms-4 mt-1" id="seed_option_${u.id}" style="display: ${isChecked ? 'block' : 'none'}">
+          <div class="form-check">
+            <input class="form-check-input seed-checkbox" type="checkbox" value="${u.id}" id="seed_${u.id}" ${isSeed ? 'checked' : ''}>
+            <label class="form-check-label text-warning" for="seed_${u.id}">
+              <i class="bi bi-star-fill"></i> 设为种子选手
+            </label>
+          </div>
+        </div>
       </div>
-    `).join('');
+    `}).join('');
 
     const modal = new bootstrap.Modal(document.getElementById('assignUserModal'));
     modal.show();
@@ -913,23 +968,86 @@ async function showAssignUserModal(codeId, codeName) {
   }
 }
 
+// 切换用户种子选手选项显示
+function toggleUserSeedOption(userId, isSeed) {
+  const userCheckbox = document.getElementById(`user_${userId}`);
+  const seedOption = document.getElementById(`seed_option_${userId}`);
+  
+  if (seedOption) {
+    seedOption.style.display = userCheckbox.checked ? 'block' : 'none';
+  }
+  
+  // 如果用户取消勾选，同时取消种子选手勾选
+  if (!userCheckbox.checked) {
+    const seedCheckbox = document.getElementById(`seed_${userId}`);
+    if (seedCheckbox) {
+      seedCheckbox.checked = false;
+    }
+  }
+}
+
+// 全选用户
+function selectAllUsers() {
+  document.querySelectorAll('#userCheckboxes .user-checkbox').forEach(cb => {
+    cb.checked = true;
+    const userId = cb.value;
+    const seedOption = document.getElementById(`seed_option_${userId}`);
+    if (seedOption) seedOption.style.display = 'block';
+  });
+}
+
+// 全不选用户
+function deselectAllUsers() {
+  document.querySelectorAll('#userCheckboxes .user-checkbox').forEach(cb => {
+    cb.checked = false;
+    const userId = cb.value;
+    const seedOption = document.getElementById(`seed_option_${userId}`);
+    if (seedOption) seedOption.style.display = 'none';
+    
+    // 同时取消种子选手勾选
+    const seedCheckbox = document.getElementById(`seed_${userId}`);
+    if (seedCheckbox) seedCheckbox.checked = false;
+  });
+}
+
 // 保存分配的用户
 async function saveAssignedUsers() {
   if (!currentCodeId) return;
 
-  const checkboxes = document.querySelectorAll('.user-checkbox:checked');
-  const userIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  // 获取选中的用户
+  const userCheckboxes = document.querySelectorAll('#userCheckboxes .user-checkbox:checked');
+  const userIds = Array.from(userCheckboxes).map(cb => parseInt(cb.value));
+  
+  // 获取选中的种子选手（只从已选用户中获取）
+  const seedCheckboxes = document.querySelectorAll('#userCheckboxes .seed-checkbox:checked');
+  const seedIds = Array.from(seedCheckboxes).map(cb => parseInt(cb.value));
 
   try {
+    // 保存用户分配
     await apiRequest(`/activity/codes/${currentCodeId}/users`, {
       method: 'POST',
       body: JSON.stringify({ userIds })
     });
+    
+    // 只有选择了种子选手才发送请求
+    if (seedIds.length > 0) {
+      await apiRequest(`/activity/codes/${currentCodeId}/seeds`, {
+        method: 'POST',
+        body: JSON.stringify({ userIds: seedIds })
+      });
+    }
 
-    showToast('用户分配成功', 'success');
+    showToast('分配成功', 'success');
     const modal = bootstrap.Modal.getInstance(document.getElementById('assignUserModal'));
     modal.hide();
-    loadActivityCodes();
+    
+    // 刷新列表
+    const activityManagementPage = document.getElementById('activityManagementPage');
+    if (activityManagementPage && !activityManagementPage.classList.contains('d-none')) {
+      await loadActivityManagement();
+    } else {
+      await loadActivityCodes();
+    }
   } catch (error) {
     showToast('分配失败：' + error.message, 'danger');
   }
@@ -1055,11 +1173,18 @@ async function saveActivityRules() {
 // 删除活动代码
 async function deleteActivityCode(codeId) {
   if (!confirm('确定要删除该活动代码吗？相关的用户分配将被清除。')) return;
-  
+
   try {
     await apiRequest(`/activity/codes/${codeId}`, { method: 'DELETE' });
     showToast('活动代码已删除', 'success');
-    loadActivityCodes();
+    
+    // 根据当前页面刷新列表
+    const activityManagementPage = document.getElementById('activityManagementPage');
+    if (activityManagementPage && !activityManagementPage.classList.contains('d-none')) {
+      await loadActivityManagement();
+    } else {
+      await loadActivityCodes();
+    }
   } catch (error) {
     showToast('删除失败：' + error.message, 'danger');
   }

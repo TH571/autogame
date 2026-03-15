@@ -226,13 +226,23 @@ router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddlewar
 // 获取所有用户（用于分配）
 router.get('/users/all', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
-    const users = User.findAll();
+    let users;
+    
+    // 超级管理员可以看到所有用户
+    if (req.user.role === 'super_admin') {
+      users = User.findAll();
+    } else {
+      // 活动管理员只能看到自己和关联的普通用户
+      users = User.findByActivityAdminId(req.user.id);
+    }
+    
     const formattedUsers = users.map(u => ({
       id: u.id,
       email: u.email,
       name: u.name,
       role: u.role,
-      isSeed: u.is_seed === 1
+      isSeed: u.is_seed === 1,
+      activityAdminId: u.activity_admin_id
     }));
     res.json({ users: formattedUsers });
   } catch (error) {
