@@ -65,16 +65,43 @@ router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
     const { id } = req.params;
     const { name, description, rules } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ error: '名称不能为空' });
+    // 获取现有活动代码
+    const existing = ActivityCode.getById(id);
+    if (!existing) {
+      return res.status(404).json({ error: '活动代码不存在' });
     }
 
-    ActivityCode.update(id, name, description, rules);
+    // 合并现有规则和新规则
+    const updatedRules = {
+      minPlayers: rules?.minPlayers !== undefined ? rules.minPlayers : existing.min_players,
+      maxPlayers: rules?.maxPlayers !== undefined ? rules.maxPlayers : existing.max_players,
+      requireSeed: rules?.requireSeed !== undefined ? rules.requireSeed : (existing.require_seed === 1),
+      seedRequired: rules?.seedRequired !== undefined ? rules.seedRequired : (existing.seed_required === 1)
+    };
+
+    ActivityCode.update(id, name || existing.name, description !== undefined ? description : existing.description, updatedRules);
 
     res.json({ message: '活动代码更新成功' });
   } catch (error) {
     console.error('更新活动代码错误:', error);
     res.status(500).json({ error: '更新活动代码失败' });
+  }
+});
+
+// 获取单个活动代码详情（管理员）
+router.get('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const code = ActivityCode.getById(id);
+    
+    if (!code) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    
+    res.json(code);
+  } catch (error) {
+    console.error('获取活动代码错误:', error);
+    res.status(500).json({ error: '获取活动代码失败' });
   }
 });
 

@@ -718,9 +718,13 @@ async function showEditRulesModal(codeId, codeName) {
   document.getElementById('rulesCodeName').textContent = codeName;
 
   try {
-    // 加载活动代码详情
-    const codeData = await apiRequest(`/activity/codes/${codeId}`);
-    const code = codeData;
+    // 从已加载的活动代码列表中获取数据
+    const data = await apiRequest('/activity/codes');
+    const code = (data.codes || []).find(c => c.id === codeId);
+    
+    if (!code) {
+      throw new Error('活动代码不存在');
+    }
 
     document.getElementById('editMinPlayers').value = code.min_players || 4;
     document.getElementById('editMaxPlayers').value = code.max_players || 4;
@@ -757,6 +761,7 @@ async function saveActivityRules() {
     modal.hide();
     loadActivityCodes();
   } catch (error) {
+    console.error('更新活动规则失败:', error);
     showToast('更新失败：' + error.message, 'danger');
   }
 }
