@@ -137,6 +137,9 @@ function showPage(pageName) {
       case 'admin':
         loadAdminData();
         break;
+      case 'activityManagement':
+        loadActivityManagement();
+        break;
     }
   }
 }
@@ -496,6 +499,64 @@ async function loadAdminData() {
     await loadActivityCodes();
   } catch (error) {
     showToast('加载管理数据失败：' + error.message, 'danger');
+  }
+}
+
+// 加载活动管理页面
+async function loadActivityManagement() {
+  if (currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
+    showToast('无权限访问', 'danger');
+    return;
+  }
+
+  try {
+    const data = await apiRequest('/activity/codes');
+    const codes = data.codes || [];
+
+    const tbody = document.getElementById('activityManagementList');
+    tbody.innerHTML = codes.map(code => `
+      <tr>
+        <td><strong>${code.code}</strong></td>
+        <td>${code.name}</td>
+        <td>${code.description || '-'}</td>
+        <td>
+          <small>
+            <div>最少：${code.min_players}人</div>
+            <div>最多：${code.max_players}人</div>
+            <div>每局：${code.players_per_game}人</div>
+            <div>${code.require_seed ? '需种子' : '无需种子'}</div>
+            <div>${code.seed_required ? '强制参与' : '可选'}</div>
+          </small>
+        </td>
+        <td>
+          <span class="badge bg-primary">${code.user_count || 0}用户</span>
+          <span class="badge bg-warning text-dark">${code.seed_count || 0}种子</span>
+        </td>
+        <td><small class="text-muted">${formatDateCN(code.created_at)}</small></td>
+        <td>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
+              <i class="bi bi-people"></i>
+            </button>
+            <button class="btn btn-outline-warning" onclick="showManageSeedsModal(${code.id}, '${code.name}')" title="管理种子">
+              <i class="bi bi-star"></i>
+            </button>
+            <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
+              <i class="bi bi-sliders"></i>
+            </button>
+            <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    if (codes.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+    }
+  } catch (error) {
+    showToast('加载活动管理失败：' + error.message, 'danger');
   }
 }
 

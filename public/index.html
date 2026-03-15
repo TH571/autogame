@@ -35,6 +35,11 @@
               <i class="bi bi-gear"></i> 管理后台
             </a>
           </li>
+          <li class="nav-item admin-only" style="display: none;">
+            <a class="nav-link" href="#" data-page="activityManagement">
+              <i class="bi bi-qr-code"></i> 活动管理
+            </a>
+          </li>
         </ul>
         <div class="d-flex align-items-center">
           <span class="navbar-text me-3" id="userInfo"></span>
@@ -319,6 +324,36 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 活动管理页面 -->
+    <div id="activityManagementPage" class="page-content d-none">
+      <div class="card shadow">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-qr-code"></i> 活动管理</h5>
+          <button class="btn btn-light btn-sm" onclick="showCreateCodeModal()">
+            <i class="bi bi-plus-lg"></i> 创建活动
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>代码</th>
+                  <th>名称</th>
+                  <th>描述</th>
+                  <th>规则</th>
+                  <th>用户/种子</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="activityManagementList"></tbody>
+            </table>
           </div>
         </div>
       </div>
