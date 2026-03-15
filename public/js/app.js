@@ -1562,17 +1562,27 @@ async function showInviteCodeModal() {
     
     if (user.role === 'super_admin' || user.role === 'activity_admin') {
       currentInviteCode = user.inviteCode;
-      document.getElementById('currentInviteCode').value = currentInviteCode || '暂无邀请码';
       
-      // 生成二维码
-      document.getElementById('qrcodeContainer').innerHTML = '';
       if (currentInviteCode) {
-        const registerUrl = `${window.location.origin}?inviteCode=${currentInviteCode}&role=${user.role}`;
+        document.getElementById('currentInviteCode').value = currentInviteCode.code;
+        
+        // 生成二维码
+        document.getElementById('qrcodeContainer').innerHTML = '';
+        const registerUrl = `${window.location.origin}?inviteCode=${currentInviteCode.code}&role=${user.role === 'super_admin' ? 'activity_admin' : 'user'}`;
         new QRCode(document.getElementById('qrcodeContainer'), {
           text: registerUrl,
           width: 200,
           height: 200
         });
+        
+        // 显示使用状态
+        const statusText = currentInviteCode.is_used ? '已使用' : '未使用';
+        const statusClass = currentInviteCode.is_used ? 'text-danger' : 'text-success';
+        document.getElementById('inviteCodeStatus').innerHTML = `<small class="${statusClass}">状态：${statusText}</small>`;
+      } else {
+        document.getElementById('currentInviteCode').value = '暂无邀请码';
+        document.getElementById('qrcodeContainer').innerHTML = '';
+        document.getElementById('inviteCodeStatus').innerHTML = '';
       }
       
       const modal = new bootstrap.Modal(document.getElementById('inviteCodeModal'));

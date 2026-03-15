@@ -119,17 +119,27 @@ class UserModel {
   // 验证邀请码
   verifyInviteCode(code) {
     const stmt = this.db.prepare(`
-      SELECT admin_id FROM admin_invite_codes WHERE code = ?
+      SELECT * FROM admin_invite_codes WHERE code = ? AND is_used = 0
     `);
     return stmt.get(code);
+  }
+
+  // 标记邀请码为已使用
+  markInviteCodeAsUsed(code, usedByUserId) {
+    const stmt = this.db.prepare(`
+      UPDATE admin_invite_codes 
+      SET is_used = 1, used_by = ? 
+      WHERE code = ?
+    `);
+    return stmt.run(usedByUserId, code);
   }
 
   // 为活动管理员生成邀请码
   generateInviteCode(adminId) {
     const code = 'INV' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
     const stmt = this.db.prepare(`
-      INSERT INTO admin_invite_codes (admin_id, code)
-      VALUES (?, ?)
+      INSERT INTO admin_invite_codes (admin_id, code, is_used, used_by)
+      VALUES (?, ?, 0, NULL)
     `);
     stmt.run(adminId, code);
     return code;
@@ -138,7 +148,11 @@ class UserModel {
   // 获取活动管理员的邀请码
   getInviteCode(adminId) {
     const stmt = this.db.prepare(`
-      SELECT code FROM admin_invite_codes WHERE admin_id = ? ORDER BY created_at DESC LIMIT 1
+      SELECT code, is_used, used_by, created_at 
+      FROM admin_invite_codes 
+      WHERE admin_id = ? AND is_used = 0
+      ORDER BY created_at DESC 
+      LIMIT 1
     `);
     return stmt.get(adminId);
   }

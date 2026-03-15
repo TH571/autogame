@@ -66,6 +66,9 @@ router.post('/register', async (req, res) => {
     // 创建用户
     const result = User.create(email, hashedPassword, name, userRole, activityAdminId);
     
+    // 标记邀请码为已使用
+    User.markInviteCodeAsUsed(inviteCode, result.lastInsertRowid);
+    
     // 为活动管理员生成邀请码
     if (userRole === 'activity_admin') {
       const newInviteCode = User.generateInviteCode(result.lastInsertRowid);
@@ -166,7 +169,12 @@ router.get('/me', authMiddleware, (req, res) => {
     let inviteCode = null;
     if (user.role === 'activity_admin' || user.role === 'super_admin') {
       const inviteData = User.getInviteCode(user.id);
-      inviteCode = inviteData ? inviteData.code : null;
+      inviteCode = inviteData ? {
+        code: inviteData.code,
+        is_used: inviteData.is_used === 1,
+        used_by: inviteData.used_by,
+        created_at: inviteData.created_at
+      } : null;
     }
 
     res.json({

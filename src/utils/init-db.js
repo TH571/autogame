@@ -148,10 +148,25 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       admin_id INTEGER NOT NULL,
       code VARCHAR(50) UNIQUE NOT NULL,
+      is_used BOOLEAN DEFAULT 0,
+      used_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (used_by) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
+
+  // 为 admin_invite_codes 表添加使用状态列（旧数据库升级）
+  const inviteTableInfo = db.pragma('table_info(admin_invite_codes)');
+  const hasIsUsed = inviteTableInfo.some(col => col.name === 'is_used');
+  const hasUsedBy = inviteTableInfo.some(col => col.name === 'used_by');
+  
+  if (!hasIsUsed) db.exec(`ALTER TABLE admin_invite_codes ADD COLUMN is_used DEFAULT 0`);
+  if (!hasUsedBy) db.exec(`ALTER TABLE admin_invite_codes ADD COLUMN used_by INTEGER`);
+  
+  if (!hasIsUsed || !hasUsedBy) {
+    console.log('✓ 已为 admin_invite_codes 添加使用状态列');
+  }
 
   // 检查是否存在超级管理员
   const superAdminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('super_admin');
