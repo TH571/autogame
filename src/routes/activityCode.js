@@ -29,7 +29,7 @@ router.get('/codes/my', authMiddleware, (req, res) => {
 // 创建活动代码（管理员）
 router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
   try {
-    const { code, name, description } = req.body;
+    const { code, name, description, rules } = req.body;
 
     if (!code || !name) {
       return res.status(400).json({ error: '活动代码和名称不能为空' });
@@ -41,7 +41,7 @@ router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
       return res.status(400).json({ error: '活动代码已存在' });
     }
 
-    const result = ActivityCode.create(code, name, description, req.user.id);
+    const result = ActivityCode.create(code, name, description, req.user.id, rules);
 
     res.status(201).json({
       message: '活动代码创建成功',
@@ -49,7 +49,8 @@ router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
         id: result.lastInsertRowid,
         code,
         name,
-        description
+        description,
+        rules
       }
     });
   } catch (error) {
@@ -62,13 +63,13 @@ router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
 router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, rules } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: '名称不能为空' });
     }
 
-    ActivityCode.update(id, name, description);
+    ActivityCode.update(id, name, description, rules);
 
     res.json({ message: '活动代码更新成功' });
   } catch (error) {
@@ -129,6 +130,51 @@ router.delete('/codes/:id/users/:userId', authMiddleware, adminMiddleware, (req,
   } catch (error) {
     console.error('移除用户错误:', error);
     res.status(500).json({ error: '移除用户失败' });
+  }
+});
+
+// ========== 种子选手管理 ==========
+
+// 获取活动代码的种子选手列表（管理员）
+router.get('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const seeds = ActivityCode.getSeedsByCodeId(id);
+    res.json({ seeds });
+  } catch (error) {
+    console.error('获取种子选手列表错误:', error);
+    res.status(500).json({ error: '获取种子选手列表失败' });
+  }
+});
+
+// 为活动代码添加种子选手（管理员）
+router.post('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: '种子选手列表不能为空' });
+    }
+
+    ActivityCode.addSeedsBatch(id, userIds);
+
+    res.json({ message: `成功添加 ${userIds.length} 名种子选手` });
+  } catch (error) {
+    console.error('添加种子选手错误:', error);
+    res.status(500).json({ error: '添加种子选手失败' });
+  }
+});
+
+// 从活动代码移除种子选手（管理员）
+router.delete('/codes/:id/seeds/:userId', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    ActivityCode.removeSeed(id, userId);
+    res.json({ message: '种子选手已移除' });
+  } catch (error) {
+    console.error('移除种子选手错误:', error);
+    res.status(500).json({ error: '移除种子选手失败' });
   }
 });
 

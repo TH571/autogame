@@ -391,7 +391,7 @@
 
     <!-- 创建活动代码模态框 -->
     <div class="modal fade" id="activityCodeModal" tabindex="-1">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="activityCodeModalTitle">创建活动代码</h5>
@@ -400,18 +400,57 @@
           <div class="modal-body">
             <form id="activityCodeForm">
               <input type="hidden" id="editCodeId">
-              <div class="mb-3">
-                <label class="form-label">活动代码 <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="activityCode" required placeholder="如：BASKETBALL-2024">
-                <div class="form-text">英文大写字母和数字，创建后不可修改</div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">活动名称 <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" id="activityName" required placeholder="如：篮球活动">
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">活动代码 <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="activityCode" required placeholder="如：BASKETBALL-2024">
+                  <div class="form-text">英文大写字母和数字，创建后不可修改</div>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">活动名称 <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="activityName" required placeholder="如：篮球活动">
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">活动描述</label>
-                <textarea class="form-control" id="activityDescription" rows="3" placeholder="活动描述..."></textarea>
+                <textarea class="form-control" id="activityDescription" rows="2" placeholder="活动描述..."></textarea>
+              </div>
+              
+              <hr class="my-4">
+              
+              <h6 class="mb-3"><i class="bi bi-sliders"></i> 活动规则配置</h6>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">最低组局人数</label>
+                  <input type="number" class="form-control" id="minPlayers" value="4" min="2" max="10">
+                  <div class="form-text">达到此人数即可组队</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">最高组局人数</label>
+                  <input type="number" class="form-control" id="maxPlayers" value="4" min="2" max="10">
+                  <div class="form-text">每队最多人数</div>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="requireSeed" checked>
+                  <label class="form-check-label" for="requireSeed">
+                    <strong>需要种子选手参与</strong>
+                  </label>
+                  <div class="form-text">只有种子选手有空的时间段才会组织活动</div>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="seedRequired" checked>
+                  <label class="form-check-label" for="seedRequired">
+                    <strong>种子选手强制参与每场</strong>
+                  </label>
+                  <div class="form-text">种子选手必须参加每场活动</div>
+                </div>
               </div>
             </form>
           </div>

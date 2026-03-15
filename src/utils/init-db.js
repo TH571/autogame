@@ -156,7 +156,41 @@ function initDatabase() {
       description TEXT,
       created_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      -- 活动规则配置
+      min_players INTEGER DEFAULT 4,          -- 最低组局人数
+      max_players INTEGER DEFAULT 4,          -- 最高组局人数
+      require_seed BOOLEAN DEFAULT 1,         -- 是否要求种子选手参与
+      seed_required BOOLEAN DEFAULT 1         -- 种子选手是否强制参与每场
       FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  // 为 activity_codes 表添加规则列（旧数据库升级）
+  const codeTableInfo = db.pragma('table_info(activity_codes)');
+  const hasMinPlayers = codeTableInfo.some(col => col.name === 'min_players');
+  const hasMaxPlayers = codeTableInfo.some(col => col.name === 'max_players');
+  const hasRequireSeed = codeTableInfo.some(col => col.name === 'require_seed');
+  const hasSeedRequired = codeTableInfo.some(col => col.name === 'seed_required');
+  
+  if (!hasMinPlayers) db.exec(`ALTER TABLE activity_codes ADD COLUMN min_players DEFAULT 4`);
+  if (!hasMaxPlayers) db.exec(`ALTER TABLE activity_codes ADD COLUMN max_players DEFAULT 4`);
+  if (!hasRequireSeed) db.exec(`ALTER TABLE activity_codes ADD COLUMN require_seed DEFAULT 1`);
+  if (!hasSeedRequired) db.exec(`ALTER TABLE activity_codes ADD COLUMN seed_required DEFAULT 1`);
+  
+  if (!hasMinPlayers || !hasMaxPlayers || !hasRequireSeed || !hasSeedRequired) {
+    console.log('✓ 已为 activity_codes 添加规则列');
+  }
+
+  // 创建活动代码 - 种子选手关联表（一个活动可以有多个种子选手）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_code_seeds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_code_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(activity_code_id, user_id)
     )
   `);
 
