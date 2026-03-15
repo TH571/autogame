@@ -211,6 +211,30 @@ function initDatabase() {
     { name: '陈静', email: 'chenjing@example.com', password: '123456', activityCodes: ['BADMTON-2024'] }
   ];
   
+  // 为管理员和种子选手也分配所有活动代码
+  const adminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
+  const seedUser = db.prepare('SELECT id FROM users WHERE is_seed = ?').get(1);
+  
+  if (adminUser) {
+    for (const ac of defaultCodes) {
+      const activityCode = ActivityCode.getByCode(ac.code);
+      if (activityCode) {
+        ActivityCode.addUser(activityCode.id, adminUser.id);
+      }
+    }
+    console.log('✓ 管理员已分配到所有活动代码');
+  }
+  
+  if (seedUser) {
+    for (const ac of defaultCodes) {
+      const activityCode = ActivityCode.getByCode(ac.code);
+      if (activityCode) {
+        ActivityCode.addUser(activityCode.id, seedUser.id);
+      }
+    }
+    console.log('✓ 种子选手已分配到所有活动代码');
+  }
+  
   for (const u of defaultUsers) {
     const existing = User.findByEmail(u.email);
     if (!existing) {
