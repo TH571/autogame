@@ -453,7 +453,7 @@ async function loadAdminData() {
     showToast('无权限访问', 'danger');
     return;
   }
-  
+
   try {
     // 用户统计
     const statsData = await apiRequest('/team/stats');
@@ -473,10 +473,10 @@ async function loadAdminData() {
         </div>
       </div>
     `;
-    
+
     // 加载活动代码
     await loadActivityCodes();
-    
+
     // 用户列表
     const usersData = await apiRequest('/admin/users');
     allUsers = usersData.users;
