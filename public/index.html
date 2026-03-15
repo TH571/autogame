@@ -31,8 +31,8 @@
             </a>
           </li>
           <li class="nav-item admin-only" style="display: none;">
-            <a class="nav-link" href="#" data-page="admin">
-              <i class="bi bi-gear"></i> 管理后台
+            <a class="nav-link" href="#" data-page="userManagement">
+              <i class="bi bi-people"></i> 人员管理
             </a>
           </li>
           <li class="nav-item admin-only" style="display: none;">
@@ -353,6 +353,48 @@
                 </tr>
               </thead>
               <tbody id="activityManagementList"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 人员管理页面 -->
+    <div id="userManagementPage" class="page-content d-none">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-people"></i> 人员管理</h5>
+          <button class="btn btn-light btn-sm" onclick="showCreateUserModalFromManagement()">
+            <i class="bi bi-person-plus"></i> 新建用户
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary active" onclick="filterUserType('all')">全部</button>
+                <button type="button" class="btn btn-outline-primary" onclick="filterUserType('activity_admin')">活动管理员</button>
+                <button type="button" class="btn btn-outline-primary" onclick="filterUserType('user')">普通用户</button>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <input type="text" class="form-control" id="userManagementSearch" placeholder="搜索用户..." oninput="filterUserManagementList()">
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>姓名</th>
+                  <th>邮箱</th>
+                  <th>角色</th>
+                  <th>所属管理员</th>
+                  <th>注册时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="userManagementList"></tbody>
             </table>
           </div>
         </div>

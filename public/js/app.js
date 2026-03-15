@@ -112,7 +112,8 @@ function showMainApp() {
 // 切换页面
 function showPage(pageName) {
   // 检查管理员页面权限（超级管理员和活动管理员）
-  if (pageName === 'admin' && currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
+  if ((pageName === 'admin' || pageName === 'userManagement' || pageName === 'activityManagement') && 
+      currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
     showToast('无权限访问', 'danger');
     return;
   }
@@ -134,8 +135,8 @@ function showPage(pageName) {
       case 'activities':
         loadActivities();
         break;
-      case 'admin':
-        loadAdminData();
+      case 'userManagement':
+        loadUserManagement();
         break;
       case 'activityManagement':
         loadActivityManagement();
@@ -499,6 +500,186 @@ async function loadAdminData() {
     await loadActivityCodes();
   } catch (error) {
     showToast('加载管理数据失败：' + error.message, 'danger');
+  }
+}
+
+let managementUsers = [];
+let currentUserFilter = 'all';
+
+// 加载人员管理页面
+async function loadUserManagement() {
+  if (currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
+    showToast('无权限访问', 'danger');
+    return;
+  }
+
+  try {
+    const usersData = await apiRequest('/admin/users');
+    managementUsers = usersData.users || [];
+    
+    // 活动管理员只能看到自己和关联的普通用户
+    if (currentUser.role === 'activity_admin') {
+      managementUsers = managementUsers.filter(u => 
+        u.id === currentUser.id || 
+        u.activityAdminId === currentUser.id
+      );
+    }
+    
+    renderUserManagementList(managementUsers);
+  } catch (error) {
+    showToast('加载用户列表失败：' + error.message, 'danger');
+  }
+}
+
+// 渲染人员管理列表
+function renderUserManagementList(users) {
+  const tbody = document.getElementById('userManagementList');
+  
+  if (users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无用户</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td>
+        ${u.name}
+        ${u.id === currentUser.id ? '<span class="badge bg-info ms-1">我</span>' : ''}
+      </td>
+      <td>${u.email}</td>
+      <td>${getRoleBadge(u.role)}</td>
+      <td>${getActivityAdminName(u.activityAdminId)}</td>
+      <td><small class="text-muted">${formatDateCN(u.createdAt)}</small></td>
+      <td>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary" onclick="editUserFromManagement(${u.id})" title="编辑">
+            <i class="bi bi-pencil"></i>
+          </button>
+          ${canDeleteUser(u) ? `
+            <button class="btn btn-outline-danger" onclick="deleteUserFromManagement(${u.id})" title="删除">
+              <i class="bi bi-trash"></i>
+            </button>
+          ` : '<span class="badge bg-secondary">-</span>'}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// 获取活动管理员名称
+function getActivityAdminName(adminId) {
+  if (!adminId) return '-';
+  const admin = managementUsers.find(u => u.id === adminId);
+  return admin ? admin.name : '-';
+}
+
+// 判断是否可以删除用户
+function canDeleteUser(user) {
+  // 超级管理员可以删除普通用户和活动管理员（不能删除自己）
+  if (currentUser.role === 'super_admin') {
+    return user.id !== currentUser.id;
+  }
+  // 活动管理员不能删除用户
+  return false;
+}
+
+// 过滤用户类型
+function filterUserType(type) {
+  currentUserFilter = type;
+  
+  // 更新按钮状态
+  document.querySelectorAll('.btn-group .btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  
+  filterUserManagementList();
+}
+
+// 过滤人员管理列表
+function filterUserManagementList() {
+  const keyword = document.getElementById('userManagementSearch').value.toLowerCase();
+  
+  let filtered = managementUsers;
+  
+  // 按类型过滤
+  if (currentUserFilter !== 'all') {
+    filtered = filtered.filter(u => u.role === currentUserFilter);
+  }
+  
+  // 按关键词过滤
+  if (keyword) {
+    filtered = filtered.filter(u => 
+      u.name.toLowerCase().includes(keyword) || 
+      u.email.toLowerCase().includes(keyword)
+    );
+  }
+  
+  renderUserManagementList(filtered);
+}
+
+// 从人员管理编辑用户
+async function editUserFromManagement(userId) {
+  const user = managementUsers.find(u => u.id === userId);
+  if (!user) return;
+  
+  document.getElementById('userModalTitle').textContent = '编辑用户';
+  document.getElementById('editUserId').value = user.id;
+  document.getElementById('userName').value = user.name;
+  document.getElementById('userEmail').value = user.email;
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = user.role;
+  document.getElementById('userIsSeed').checked = user.isSeed;
+  document.getElementById('passwordRequired').style.display = 'none';
+  
+  // 活动管理员只能编辑普通用户
+  if (currentUser.role === 'activity_admin' && user.role !== 'user') {
+    document.getElementById('userRole').disabled = true;
+  } else {
+    document.getElementById('userRole').disabled = false;
+  }
+  
+  const modal = new bootstrap.Modal(document.getElementById('userModal'));
+  modal.show();
+}
+
+// 从人员管理创建用户
+function showCreateUserModalFromManagement() {
+  document.getElementById('userModalTitle').textContent = '新建用户';
+  document.getElementById('editUserId').value = '';
+  document.getElementById('userName').value = '';
+  document.getElementById('userEmail').value = '';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userRole').value = 'user';
+  document.getElementById('userIsSeed').checked = false;
+  document.getElementById('passwordRequired').style.display = 'inline';
+  
+  // 活动管理员只能创建普通用户
+  if (currentUser.role === 'activity_admin') {
+    document.getElementById('userRole').value = 'user';
+    document.getElementById('userRole').disabled = true;
+  } else {
+    document.getElementById('userRole').disabled = false;
+  }
+  
+  const modal = new bootstrap.Modal(document.getElementById('userModal'));
+  modal.show();
+}
+
+// 从人员管理删除用户
+async function deleteUserFromManagement(userId) {
+  const user = managementUsers.find(u => u.id === userId);
+  if (!user) return;
+  
+  if (!confirm(`确定要删除用户 "${user.name}" 吗？此操作不可恢复。`)) return;
+  
+  try {
+    await apiRequest(`/admin/users/${userId}`, { method: 'DELETE' });
+    showToast('用户已删除', 'success');
+    loadUserManagement();
+  } catch (error) {
+    showToast('删除失败：' + error.message, 'danger');
   }
 }
 
