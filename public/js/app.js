@@ -1160,35 +1160,40 @@ async function saveUser() {
   const password = document.getElementById('userPassword').value;
   const role = document.getElementById('userRole').value;
   const isSeed = document.getElementById('userIsSeed').checked;
-  
+
   // 验证
   if (!name || !email) {
     showToast('姓名和邮箱不能为空', 'danger');
     return;
   }
-  
+
   if (!userId && !password) {
     showToast('新建用户必须设置密码', 'danger');
     return;
   }
-  
+
   if (password && password.length < 6) {
     showToast('密码长度至少 6 位', 'danger');
     return;
   }
-  
+
   try {
     const data = {
       name,
       email,
       role,
-      isSeed
+      isSeed: isSeed ? 1 : 0
     };
-    
+
     if (password) {
       data.password = password;
     }
-    
+
+    // 活动管理员创建用户时，自动关联到自己
+    if (!userId && currentUser.role === 'activity_admin') {
+      data.activityAdminId = currentUser.id;
+    }
+
     if (userId) {
       // 更新用户
       await apiRequest(`/admin/users/${userId}`, {
@@ -1198,20 +1203,28 @@ async function saveUser() {
       showToast('用户更新成功', 'success');
     } else {
       // 创建用户
-      await apiRequest('/admin/users', {
+      const response = await apiRequest('/admin/users', {
         method: 'POST',
         body: JSON.stringify(data)
       });
+      console.log('创建用户响应:', response);
       showToast('用户创建成功', 'success');
     }
-    
+
     // 关闭模态框并刷新列表
     const modalEl = document.getElementById('userModal');
     const modal = bootstrap.Modal.getInstance(modalEl);
-    modal.hide();
-    
-    loadAdminData();
+    if (modal) modal.hide();
+
+    // 根据当前页面刷新列表
+    const isUserManagementPage = !document.getElementById('userManagementPage').classList.contains('d-none');
+    if (isUserManagementPage) {
+      loadUserManagement();
+    } else {
+      loadAdminData();
+    }
   } catch (error) {
+    console.error('保存用户错误:', error);
     showToast(error.message.includes('邮箱已被注册') ? '该邮箱已被注册' : '操作失败：' + error.message, 'danger');
   }
 }
