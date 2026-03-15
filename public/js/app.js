@@ -561,6 +561,10 @@ async function saveActivityCode() {
   const code = document.getElementById('activityCode').value.trim();
   const name = document.getElementById('activityName').value.trim();
   const description = document.getElementById('activityDescription').value.trim();
+  const minPlayers = parseInt(document.getElementById('minPlayers').value) || 4;
+  const maxPlayers = parseInt(document.getElementById('maxPlayers').value) || 4;
+  const requireSeed = document.getElementById('requireSeed').checked;
+  const seedRequired = document.getElementById('seedRequired').checked;
 
   if (!code || !name) {
     showToast('活动代码和名称不能为空', 'danger');
@@ -568,28 +572,30 @@ async function saveActivityCode() {
   }
 
   try {
+    const rules = { minPlayers, maxPlayers, requireSeed, seedRequired };
+    
     if (codeId) {
-      // 更新
+      // 更新 - 包含规则
       await apiRequest(`/activity/codes/${codeId}`, {
         method: 'PUT',
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, rules })
       });
       showToast('活动代码更新成功', 'success');
     } else {
-      // 创建
-      const response = await apiRequest('/activity/codes', {
+      // 创建 - 包含规则
+      await apiRequest('/activity/codes', {
         method: 'POST',
-        body: JSON.stringify({ code, name, description })
+        body: JSON.stringify({ code, name, description, rules })
       });
-      console.log('创建活动代码响应:', response);
       showToast('活动代码创建成功', 'success');
     }
 
     const modalEl = document.getElementById('activityCodeModal');
     const modal = bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
-    
-    loadActivityCodes();
+
+    // 重新加载活动代码列表，显示最新数据
+    await loadActivityCodes();
   } catch (error) {
     console.error('保存活动代码错误:', error);
     showToast(error.message || '操作失败', 'danger');
