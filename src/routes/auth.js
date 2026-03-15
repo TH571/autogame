@@ -1,15 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const router = express.Router();
 const User = require('../models/User');
 const { authMiddleware } = require('../middleware/auth');
 require('dotenv').config();
 
+const router = express.Router();
+
 // 用户注册
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, role, inviteCode } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: '邮箱、密码和姓名不能为空' });
@@ -26,11 +27,39 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '密码长度至少为 6 位' });
     }
 
+    // 角色验证
+    const validRoles = ['activity_admin', 'user'];
+    const userRole = role || 'user';
+    if (!validRoles.includes(userRole)) {
+      return res.status(400).json({ error: '无效的角色类型' });
+    }
+
+    let activityAdminId = null;
+
+    // 如果是普通用户，需要验证邀请码
+    if (userRole === 'user') {
+      if (!inviteCode) {
+        return res.status(400).json({ error: '普通用户注册需要活动管理员邀请码' });
+      }
+      
+      const inviteData = User.verifyInviteCode(inviteCode);
+      if (!inviteData) {
+        return res.status(400).json({ error: '无效的邀请码' });
+      }
+      activityAdminId = inviteData.admin_id;
+    }
+
     // 加密密码
     const hashedPassword = bcrypt.hashSync(password, 10);
 
     // 创建用户
-    const result = User.create(email, hashedPassword, name);
+    const result = User.create(email, hashedPassword, name, userRole, activityAdminId);
+    
+    // 为活动管理员生成邀请码
+    if (userRole === 'activity_admin') {
+      const newInviteCode = User.generateInviteCode(result.lastInsertRowid);
+      console.log(`为新活动管理员 ${name} 生成邀请码：${newInviteCode}`);
+    }
     
     // 生成 token
     const token = jwt.sign(
@@ -38,7 +67,7 @@ router.post('/register', async (req, res) => {
         id: result.lastInsertRowid, 
         email, 
         name,
-        role: 'user',
+        role: userRole,
         isSeed: false 
       },
       process.env.JWT_SECRET,
@@ -52,7 +81,7 @@ router.post('/register', async (req, res) => {
         id: result.lastInsertRowid,
         email,
         name,
-        role: 'user',
+        role: userRole,
         isSeed: false
       }
     });
@@ -104,7 +133,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
-        isSeed: user.is_seed === 1
+        isSeed: user.is_seed === 1,
+        activityAdminId: user.activity_admin_id
       }
     });
   } catch (error) {
@@ -121,6 +151,13 @@ router.get('/me', authMiddleware, (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
 
+    // 获取邀请码（如果是活动管理员）
+    let inviteCode = null;
+    if (user.role === 'activity_admin') {
+      const inviteData = User.getInviteCode(user.id);
+      inviteCode = inviteData ? inviteData.code : null;
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -128,6 +165,8 @@ router.get('/me', authMiddleware, (req, res) => {
         name: user.name,
         role: user.role,
         isSeed: user.is_seed === 1,
+        activityAdminId: user.activity_admin_id,
+        inviteCode,
         createdAt: user.created_at
       }
     });

@@ -22,10 +22,18 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// 管理员权限检查
-const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: '需要管理员权限' });
+// 超级管理员权限检查
+const superAdminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: '需要超级管理员权限' });
+  }
+  next();
+};
+
+// 活动管理员权限检查（包括超级管理员）
+const activityAdminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
+    return res.status(403).json({ error: '需要活动管理员权限' });
   }
   next();
 };
@@ -38,4 +46,4 @@ const seedMiddleware = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, adminMiddleware, seedMiddleware };
+module.exports = { authMiddleware, superAdminMiddleware, activityAdminMiddleware, seedMiddleware };

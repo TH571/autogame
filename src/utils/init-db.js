@@ -31,10 +31,13 @@ function initDatabase() {
       email VARCHAR(255) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
       name VARCHAR(100) NOT NULL,
-      role VARCHAR(20) DEFAULT 'user' CHECK(role IN ('user', 'admin', 'seed')),
+      role VARCHAR(20) DEFAULT 'user' CHECK(role IN ('super_admin', 'activity_admin', 'user')),
       is_seed BOOLEAN DEFAULT 0,
+      invite_code VARCHAR(50),              -- 活动管理员的邀请码
+      activity_admin_id INTEGER,            -- 关联的活动管理员 ID
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (activity_admin_id) REFERENCES users(id)
     )
   `);
 
@@ -113,38 +116,62 @@ function initDatabase() {
     console.log('✓ 已添加 last_modified 列');
   }
 
-  // 检查是否存在管理员账户
-  const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin');
-  if (adminCount.count === 0) {
+  // 检查是否存在超级管理员
+  const superAdminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('super_admin');
+  if (superAdminCount.count === 0) {
     const hashedPassword = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123456', 10);
-    db.prepare(`
+    const result = db.prepare(`
       INSERT INTO users (email, password, name, role)
       VALUES (?, ?, ?, ?)
     `).run(
       process.env.ADMIN_EMAIL || 'admin@autogame.com',
       hashedPassword,
       '铁',
-      'admin'
+      'super_admin'
     );
-    console.log('✓ 管理员账户已创建');
+    
+    // 为超级管理员生成邀请码
+    const inviteCode = 'SUPER' + Date.now().toString(36).toUpperCase();
+    db.prepare(`
+      INSERT INTO admin_invite_codes (admin_id, code)
+      VALUES (?, ?)
+    `).run(result.lastInsertRowid, inviteCode);
+    
+    console.log('✓ 超级管理员账户已创建 (admin@autogame.com / admin123456)');
+    console.log(`✓ 超级管理员邀请码：${inviteCode}`);
   }
 
-  // 检查是否存在种子选手
-  const seedCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_seed = 1').get();
-  if (seedCount.count === 0) {
-    // 创建一个默认种子选手账户
+  // 检查是否存在活动管理员（蚊子）
+  const activityAdminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('activity_admin');
+  if (activityAdminCount.count === 0) {
     const hashedPassword = bcrypt.hashSync('seed123456', 10);
-    db.prepare(`
+    const result = db.prepare(`
       INSERT INTO users (email, password, name, role, is_seed)
       VALUES (?, ?, ?, ?, ?)
     `).run(
       'seed@autogame.com',
       hashedPassword,
       '蚊子',
-      'seed',
+      'activity_admin',
       1
     );
-    console.log('✓ 种子选手账户已创建 (seed@autogame.com / seed123456)');
+    
+    // 为活动管理员生成邀请码
+    const inviteCode = 'ADMIN' + Date.now().toString(36).toUpperCase();
+    db.prepare(`
+      INSERT INTO admin_invite_codes (admin_id, code)
+      VALUES (?, ?)
+    `).run(result.lastInsertRowid, inviteCode);
+    
+    console.log('✓ 活动管理员账户已创建 (seed@autogame.com / seed123456)');
+    console.log(`✓ 活动管理员邀请码：${inviteCode}`);
+  }
+
+  // 升级现有的 admin 角色为 super_admin
+  const oldAdminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin');
+  if (oldAdminCount.count > 0) {
+    db.prepare(`UPDATE users SET role = 'super_admin' WHERE role = 'admin'`).run();
+    console.log('✓ 已升级现有管理员为超级管理员');
   }
 
   // 创建活动代码表
@@ -207,6 +234,17 @@ function initDatabase() {
       FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(activity_code_id, user_id)
+    )
+  `);
+
+  // 活动管理员邀请码表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_invite_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      code VARCHAR(50) UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
