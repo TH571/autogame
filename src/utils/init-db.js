@@ -2,15 +2,22 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
 
-// 确保数据目录存在
-const dataDir = path.join(__dirname, '../../data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Vercel Serverless 环境使用 /tmp 目录
+const isVercel = process.env.VERCEL === '1';
+const dbPath = isVercel 
+  ? '/tmp/autogame.db' 
+  : (process.env.DATABASE_PATH || './data/autogame.db');
+
+// 确保数据目录存在（本地开发）
+if (!isVercel) {
+  const dataDir = path.dirname(dbPath);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
 }
 
-const db = new Database(process.env.DATABASE_PATH || './data/autogame.db');
+const db = new Database(dbPath);
 
 // 启用外键约束
 db.pragma('foreign_keys = ON');

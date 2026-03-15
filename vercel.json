@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "name": "autogame",
+  "builds": [
+    {
+      "src": "src/app.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "src/app.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
+    },
+    {
+      "src": "/",
+      "dest": "public/index.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "JWT_SECRET": "@jwt_secret",
+    "JWT_EXPIRES_IN": "7d",
+    "DATABASE_PATH": "/tmp/autogame.db",
+    "ADMIN_EMAIL": "admin@autogame.com",
+    "ADMIN_PASSWORD": "admin123456"
+  }
+}

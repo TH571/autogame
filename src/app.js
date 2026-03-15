@@ -1,7 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+
+// 本地开发时加载 .env
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 // 导入路由
 const authRoutes = require('./routes/auth');
@@ -51,8 +55,10 @@ async function startServer() {
     // 初始化数据库
     initDatabase();
     
-    app.listen(PORT, () => {
-      console.log(`
+    // Vercel Serverless 环境不需要启动服务器
+    if (!process.env.VERCEL) {
+      app.listen(PORT, () => {
+        console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║           文体活动自动组队系统已启动                        ║
 ║                                                           ║
@@ -66,14 +72,18 @@ async function startServer() {
 ║   默认密码：seed123456
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
-      `);
-    });
+        `);
+      });
+    }
   } catch (error) {
     console.error('启动失败:', error);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 }
 
 startServer();
 
+// Vercel 导出
 module.exports = app;
