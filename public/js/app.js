@@ -579,28 +579,35 @@ async function saveActivityCode() {
 async function showAssignUserModal(codeId, codeName) {
   currentCodeId = codeId;
   document.getElementById('assignCodeName').textContent = codeName;
-  
-  // 加载所有用户
-  const usersData = await apiRequest('/activity/users/all');
-  const allUsers = usersData.users || [];
-  
-  // 加载已分配的用户
-  const assignedData = await apiRequest(`/activity/codes/${codeId}/users`);
-  const assignedUserIds = new Set((assignedData.users || []).map(u => u.id));
-  
-  // 生成复选框
-  const container = document.getElementById('userCheckboxes');
-  container.innerHTML = allUsers.map(u => `
-    <div class="form-check">
-      <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user_${u.id}" ${assignedUserIds.has(u.id) ? 'checked' : ''}>
-      <label class="form-check-label" for="user_${u.id}">
-        ${u.name} (${u.email}) ${u.isSeed ? '<span class="badge seed-badge">种子</span>' : ''} ${u.role === 'admin' ? '<span class="badge bg-danger">管理</span>' : ''}
-      </label>
-    </div>
-  `).join('');
-  
-  const modal = new bootstrap.Modal(document.getElementById('assignUserModal'));
-  modal.show();
+
+  try {
+    // 加载所有用户
+    const usersData = await apiRequest('/activity/users/all');
+    console.log('所有用户:', usersData);
+    const allUsers = usersData.users || [];
+
+    // 加载已分配的用户
+    const assignedData = await apiRequest(`/activity/codes/${codeId}/users`);
+    console.log('已分配用户:', assignedData);
+    const assignedUserIds = new Set((assignedData.users || []).map(u => u.id));
+
+    // 生成复选框
+    const container = document.getElementById('userCheckboxes');
+    container.innerHTML = allUsers.map(u => `
+      <div class="form-check">
+        <input class="form-check-input user-checkbox" type="checkbox" value="${u.id}" id="user_${u.id}" ${assignedUserIds.has(u.id) ? 'checked' : ''}>
+        <label class="form-check-label" for="user_${u.id}">
+          ${u.name} (${u.email}) ${u.isSeed ? '<span class="badge seed-badge">种子</span>' : ''} ${u.role === 'admin' ? '<span class="badge bg-danger">管理</span>' : ''}
+        </label>
+      </div>
+    `).join('');
+
+    const modal = new bootstrap.Modal(document.getElementById('assignUserModal'));
+    modal.show();
+  } catch (error) {
+    console.error('加载用户列表失败:', error);
+    showToast('加载用户列表失败：' + error.message, 'danger');
+  }
 }
 
 // 保存分配的用户
