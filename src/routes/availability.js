@@ -63,7 +63,7 @@ router.post('/', authMiddleware, (req, res) => {
     }
 
     const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
-    if (!isInCode && req.user.role !== 'admin') {
+    if (!isInCode && req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 
@@ -116,7 +116,7 @@ router.post('/batch', authMiddleware, (req, res) => {
     }
 
     const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
-    if (!isInCode && req.user.role !== 'admin') {
+    if (!isInCode && req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 

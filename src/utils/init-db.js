@@ -362,4 +362,4 @@ function getDb() {
   return db;
 }
 
-module.exports = { initDatabase, getDb };
+module.exports = { initDatabase, getDb, isVercel };
