@@ -33,7 +33,12 @@
 
 **Vercel 部署地址**: https://autogame-psi.vercel.app
 
-> 注意：Vercel Serverless 环境使用临时存储，数据库在每次部署后重置。
+> ⚠️ **注意**: Vercel Serverless 环境使用临时存储，每次重新部署后数据库会重置。
+> 
+> 解决方案：
+> 1. 使用 Vercel Postgres（推荐）- 查看 [DATABASE.md](DATABASE.md)
+> 2. 本地部署运行 - 数据保存在 `data/autogame.db`
+> 3. 使用外部数据库服务（Turso、Supabase 等）
 
 ## 快速开始
 
