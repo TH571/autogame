@@ -8,8 +8,8 @@ class ActivityCodeModel {
   // 创建活动代码
   create(code, name, description, createdBy, rules = {}) {
     const stmt = this.db.prepare(`
-      INSERT INTO activity_codes (code, name, description, created_by, min_players, max_players, require_seed, seed_required)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO activity_codes (code, name, description, created_by, min_players, max_players, players_per_game, require_seed, seed_required)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     return stmt.run(
       code, 
@@ -18,6 +18,7 @@ class ActivityCodeModel {
       createdBy,
       rules.minPlayers || 4,
       rules.maxPlayers || 4,
+      rules.playersPerGame || 4,
       rules.requireSeed !== undefined ? (rules.requireSeed ? 1 : 0) : 1,
       rules.seedRequired !== undefined ? (rules.seedRequired ? 1 : 0) : 1
     );
@@ -68,6 +69,10 @@ class ActivityCodeModel {
     if (rules.maxPlayers !== undefined) {
       fields.push('max_players = ?');
       values.push(rules.maxPlayers);
+    }
+    if (rules.playersPerGame !== undefined) {
+      fields.push('players_per_game = ?');
+      values.push(rules.playersPerGame);
     }
     if (rules.requireSeed !== undefined) {
       fields.push('require_seed = ?');

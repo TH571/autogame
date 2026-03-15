@@ -159,8 +159,9 @@ function initDatabase() {
       -- 活动规则配置
       min_players INTEGER DEFAULT 4,          -- 最低组局人数
       max_players INTEGER DEFAULT 4,          -- 最高组局人数
+      players_per_game INTEGER DEFAULT 4,     -- 每局人数
       require_seed BOOLEAN DEFAULT 1,         -- 是否要求种子选手参与
-      seed_required BOOLEAN DEFAULT 1,        -- 种子选手是否强制参与每场
+      seed_required BOOLEAN DEFAULT 1         -- 种子选手是否强制参与每场
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `);
@@ -169,15 +170,17 @@ function initDatabase() {
   const codeTableInfo = db.pragma('table_info(activity_codes)');
   const hasMinPlayers = codeTableInfo.some(col => col.name === 'min_players');
   const hasMaxPlayers = codeTableInfo.some(col => col.name === 'max_players');
+  const hasPlayersPerGame = codeTableInfo.some(col => col.name === 'players_per_game');
   const hasRequireSeed = codeTableInfo.some(col => col.name === 'require_seed');
   const hasSeedRequired = codeTableInfo.some(col => col.name === 'seed_required');
   
   if (!hasMinPlayers) db.exec(`ALTER TABLE activity_codes ADD COLUMN min_players DEFAULT 4`);
   if (!hasMaxPlayers) db.exec(`ALTER TABLE activity_codes ADD COLUMN max_players DEFAULT 4`);
+  if (!hasPlayersPerGame) db.exec(`ALTER TABLE activity_codes ADD COLUMN players_per_game DEFAULT 4`);
   if (!hasRequireSeed) db.exec(`ALTER TABLE activity_codes ADD COLUMN require_seed DEFAULT 1`);
   if (!hasSeedRequired) db.exec(`ALTER TABLE activity_codes ADD COLUMN seed_required DEFAULT 1`);
   
-  if (!hasMinPlayers || !hasMaxPlayers || !hasRequireSeed || !hasSeedRequired) {
+  if (!hasMinPlayers || !hasMaxPlayers || !hasPlayersPerGame || !hasRequireSeed || !hasSeedRequired) {
     console.log('✓ 已为 activity_codes 添加规则列');
   }
 

@@ -502,6 +502,7 @@ async function loadActivityCodes() {
           <small>
             <div>最少：${code.min_players}人</div>
             <div>最多：${code.max_players}人</div>
+            <div>每局：${code.players_per_game}人</div>
             <div>${code.require_seed ? '需种子' : '无需种子'}</div>
             <div>${code.seed_required ? '强制参与' : '可选'}</div>
           </small>
@@ -548,6 +549,7 @@ function showCreateCodeModal() {
   document.getElementById('activityDescription').value = '';
   document.getElementById('minPlayers').value = 4;
   document.getElementById('maxPlayers').value = 4;
+  document.getElementById('playersPerGame').value = 4;
   document.getElementById('requireSeed').checked = true;
   document.getElementById('seedRequired').checked = true;
 
@@ -563,6 +565,7 @@ async function saveActivityCode() {
   const description = document.getElementById('activityDescription').value.trim();
   const minPlayers = parseInt(document.getElementById('minPlayers').value) || 4;
   const maxPlayers = parseInt(document.getElementById('maxPlayers').value) || 4;
+  const playersPerGame = parseInt(document.getElementById('playersPerGame').value) || 4;
   const requireSeed = document.getElementById('requireSeed').checked;
   const seedRequired = document.getElementById('seedRequired').checked;
 
@@ -572,7 +575,7 @@ async function saveActivityCode() {
   }
 
   try {
-    const rules = { minPlayers, maxPlayers, requireSeed, seedRequired };
+    const rules = { minPlayers, maxPlayers, playersPerGame, requireSeed, seedRequired };
     
     if (codeId) {
       // 更新 - 包含规则

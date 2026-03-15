@@ -427,15 +427,20 @@
               <h6 class="mb-3"><i class="bi bi-sliders"></i> 活动规则配置</h6>
               
               <div class="row mb-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <label class="form-label">最低组局人数</label>
                   <input type="number" class="form-control" id="minPlayers" value="4" min="2" max="10">
                   <div class="form-text">达到此人数即可组队</div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <label class="form-label">最高组局人数</label>
                   <input type="number" class="form-control" id="maxPlayers" value="4" min="2" max="10">
                   <div class="form-text">每队最多人数</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">每局人数</label>
+                  <input type="number" class="form-control" id="playersPerGame" value="4" min="2" max="10">
+                  <div class="form-text">参与人数必须为此数的整数倍</div>
                 </div>
               </div>
               
@@ -543,6 +548,11 @@
               <label class="form-label">最高组局人数</label>
               <input type="number" class="form-control" id="editMaxPlayers" value="4" min="2" max="10">
               <div class="form-text">每队最多人数</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">每局人数</label>
+              <input type="number" class="form-control" id="editPlayersPerGame" value="4" min="2" max="10">
+              <div class="form-text">参与人数必须为此数的整数倍</div>
             </div>
             <div class="mb-3 form-check">
               <input type="checkbox" class="form-check-input" id="editRequireSeed">

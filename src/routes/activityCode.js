@@ -79,6 +79,7 @@ router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
     const updatedRules = {
       minPlayers: rules?.minPlayers !== undefined ? rules.minPlayers : existing.min_players,
       maxPlayers: rules?.maxPlayers !== undefined ? rules.maxPlayers : existing.max_players,
+      playersPerGame: rules?.playersPerGame !== undefined ? rules.playersPerGame : existing.players_per_game,
       requireSeed: rules?.requireSeed !== undefined ? rules.requireSeed : (existing.require_seed === 1),
       seedRequired: rules?.seedRequired !== undefined ? rules.seedRequired : (existing.seed_required === 1)
     };
