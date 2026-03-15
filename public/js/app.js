@@ -630,13 +630,18 @@ async function editUserFromManagement(userId) {
   document.getElementById('userEmail').value = user.email;
   document.getElementById('userPassword').value = '';
   document.getElementById('userRole').value = user.role;
-  document.getElementById('userIsSeed').checked = user.isSeed;
+  document.getElementById('userIsSeed').checked = user.isSeed === 1;
   document.getElementById('passwordRequired').style.display = 'none';
   
-  // 活动管理员只能编辑普通用户
-  if (currentUser.role === 'activity_admin' && user.role !== 'user') {
-    document.getElementById('userRole').disabled = true;
+  // 活动管理员只能编辑普通用户，不能修改角色
+  if (currentUser.role === 'activity_admin') {
+    if (user.role !== 'user') {
+      document.getElementById('userRole').disabled = true;
+    } else {
+      document.getElementById('userRole').disabled = false;
+    }
   } else {
+    // 超级管理员可以修改任何用户角色
     document.getElementById('userRole').disabled = false;
   }
   
@@ -660,6 +665,7 @@ function showCreateUserModalFromManagement() {
     document.getElementById('userRole').value = 'user';
     document.getElementById('userRole').disabled = true;
   } else {
+    // 超级管理员可以创建任何角色
     document.getElementById('userRole').disabled = false;
   }
   
@@ -1191,6 +1197,11 @@ async function saveUser() {
 
     // 活动管理员创建用户时，自动关联到自己
     if (!userId && currentUser.role === 'activity_admin') {
+      data.activityAdminId = currentUser.id;
+    }
+    
+    // 超级管理员创建活动管理员时，也关联到自己
+    if (!userId && currentUser.role === 'super_admin' && role === 'activity_admin') {
       data.activityAdminId = currentUser.id;
     }
 
