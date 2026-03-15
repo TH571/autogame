@@ -546,7 +546,11 @@ function showCreateCodeModal() {
   document.getElementById('activityCode').disabled = false;
   document.getElementById('activityName').value = '';
   document.getElementById('activityDescription').value = '';
-  
+  document.getElementById('minPlayers').value = 4;
+  document.getElementById('maxPlayers').value = 4;
+  document.getElementById('requireSeed').checked = true;
+  document.getElementById('seedRequired').checked = true;
+
   const modal = new bootstrap.Modal(document.getElementById('activityCodeModal'));
   modal.show();
 }
