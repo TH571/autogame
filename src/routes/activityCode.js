@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const ActivityCode = require('../models/ActivityCode');
 const User = require('../models/User');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
 // 获取所有活动代码（管理员）
-router.get('/codes', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const codes = ActivityCode.getAll();
     res.json({ codes });
@@ -27,7 +27,7 @@ router.get('/codes/my', authMiddleware, (req, res) => {
 });
 
 // 创建活动代码（管理员）
-router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { code, name, description, rules } = req.body;
 
@@ -60,7 +60,7 @@ router.post('/codes', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 更新活动代码（管理员）
-router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.put('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, rules } = req.body;
@@ -94,7 +94,7 @@ router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 获取单个活动代码详情（管理员）
-router.get('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const code = ActivityCode.getById(id);
@@ -111,7 +111,7 @@ router.get('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 删除活动代码（管理员）
-router.delete('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     ActivityCode.delete(id);
@@ -123,7 +123,7 @@ router.delete('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 获取活动代码的用户列表（管理员）
-router.get('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const users = ActivityCode.getUsersByCodeId(id);
@@ -135,7 +135,7 @@ router.get('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 为活动代码添加用户（管理员）
-router.post('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const { userIds } = req.body;
@@ -154,7 +154,7 @@ router.post('/codes/:id/users', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 从活动代码移除用户（管理员）
-router.delete('/codes/:id/users/:userId', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/codes/:id/users/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id, userId } = req.params;
     ActivityCode.removeUser(id, userId);
@@ -168,7 +168,7 @@ router.delete('/codes/:id/users/:userId', authMiddleware, adminMiddleware, (req,
 // ========== 种子选手管理 ==========
 
 // 获取活动代码的种子选手列表（管理员）
-router.get('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const seeds = ActivityCode.getSeedsByCodeId(id);
@@ -180,7 +180,7 @@ router.get('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 为活动代码添加种子选手（管理员）
-router.post('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const { userIds } = req.body;
@@ -199,7 +199,7 @@ router.post('/codes/:id/seeds', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 从活动代码移除种子选手（管理员）
-router.delete('/codes/:id/seeds/:userId', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id, userId } = req.params;
     ActivityCode.removeSeed(id, userId);
@@ -211,7 +211,7 @@ router.delete('/codes/:id/seeds/:userId', authMiddleware, adminMiddleware, (req,
 });
 
 // 获取所有用户（用于分配）
-router.get('/users/all', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/users/all', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const users = User.findAll();
     const formattedUsers = users.map(u => ({

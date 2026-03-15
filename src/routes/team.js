@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const TeamBuilder = require('../utils/TeamBuilder');
 const Activity = require('../models/Activity');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
-// 执行自动组队（管理员）
-router.post('/build', authMiddleware, adminMiddleware, (req, res) => {
+// 执行自动组队（活动管理员）
+router.post('/build', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const result = TeamBuilder.buildTeams();
     
@@ -24,7 +24,7 @@ router.post('/build', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 为特定日期组队（管理员）
-router.post('/build/:date', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/build/:date', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { date } = req.params;
     
@@ -117,7 +117,7 @@ router.get('/activities/my', authMiddleware, (req, res) => {
 });
 
 // 获取组队统计
-router.get('/stats', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/stats', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const stats = TeamBuilder.getTeamStats();
     res.json({ stats });

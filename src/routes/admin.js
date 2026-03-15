@@ -4,10 +4,10 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
 const Availability = require('../models/Availability');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, activityAdminMiddleware, superAdminMiddleware } = require('../middleware/auth');
 
 // 获取所有用户（管理员）
-router.get('/users', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/users', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const users = User.findAll();
     const formattedUsers = users.map(u => ({
@@ -26,7 +26,7 @@ router.get('/users', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 创建用户（管理员）
-router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/users', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { email, password, name, role, isSeed } = req.body;
 
@@ -67,7 +67,7 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 更新用户（管理员）
-router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/users/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { email, password, name, role, isSeed } = req.body;
@@ -95,7 +95,7 @@ router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 删除用户（管理员）
-router.delete('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/users/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     
@@ -113,7 +113,7 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 获取所有活动（管理员）
-router.get('/activities', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/activities', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const activities = Activity.getAll();
     
@@ -135,7 +135,7 @@ router.get('/activities', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 更新活动状态（管理员）
-router.put('/activities/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.put('/activities/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -153,7 +153,7 @@ router.put('/activities/:id', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 删除活动（管理员）
-router.delete('/activities/:id', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/activities/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { id } = req.params;
     Activity.delete(id);
@@ -165,7 +165,7 @@ router.delete('/activities/:id', authMiddleware, adminMiddleware, (req, res) => 
 });
 
 // 获取所有用户的申报（管理员）
-router.get('/availabilities', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/availabilities', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const users = User.findAll();
     const availabilities = [];
@@ -193,7 +193,7 @@ router.get('/availabilities', authMiddleware, adminMiddleware, (req, res) => {
 });
 
 // 获取指定用户的申报详情（管理员）
-router.get('/availabilities/:userId', authMiddleware, adminMiddleware, (req, res) => {
+router.get('/availabilities/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { userId } = req.params;
     const user = User.findById(userId);
@@ -226,7 +226,7 @@ router.get('/availabilities/:userId', authMiddleware, adminMiddleware, (req, res
 });
 
 // 为用户添加申报（管理员）
-router.post('/availabilities/:userId', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/availabilities/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { userId } = req.params;
     const { date, timeSlot } = req.body;
@@ -268,7 +268,7 @@ router.post('/availabilities/:userId', authMiddleware, adminMiddleware, (req, re
 });
 
 // 批量为用户添加申报（管理员）
-router.post('/availabilities/:userId/batch', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/availabilities/:userId/batch', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { userId } = req.params;
     const { availabilities } = req.body;
@@ -295,7 +295,7 @@ router.post('/availabilities/:userId/batch', authMiddleware, adminMiddleware, (r
 });
 
 // 删除用户的申报（管理员）
-router.delete('/availabilities/:userId/:date/:timeSlot', authMiddleware, adminMiddleware, (req, res) => {
+router.delete('/availabilities/:userId/:date/:timeSlot', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
     const { userId, date, timeSlot } = req.params;
     const timeSlotNum = parseInt(timeSlot, 10);

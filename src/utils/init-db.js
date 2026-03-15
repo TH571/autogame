@@ -116,6 +116,43 @@ function initDatabase() {
     console.log('✓ 已添加 last_modified 列');
   }
 
+  // 创建活动代码 - 种子选手关联表（一个活动可以有多个种子选手）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_code_seeds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_code_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(activity_code_id, user_id)
+    )
+  `);
+
+  // 创建活动代码 - 用户关联表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_code_users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_code_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(activity_code_id, user_id)
+    )
+  `);
+
+  // 活动管理员邀请码表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_invite_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER NOT NULL,
+      code VARCHAR(50) UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // 检查是否存在超级管理员
   const superAdminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('super_admin');
   if (superAdminCount.count === 0) {
@@ -188,7 +225,7 @@ function initDatabase() {
       max_players INTEGER DEFAULT 4,          -- 最高组局人数
       players_per_game INTEGER DEFAULT 4,     -- 每局人数
       require_seed BOOLEAN DEFAULT 1,         -- 是否要求种子选手参与
-      seed_required BOOLEAN DEFAULT 1         -- 种子选手是否强制参与每场
+      seed_required BOOLEAN DEFAULT 1,        -- 种子选手是否强制参与每场
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `);
@@ -210,43 +247,6 @@ function initDatabase() {
   if (!hasMinPlayers || !hasMaxPlayers || !hasPlayersPerGame || !hasRequireSeed || !hasSeedRequired) {
     console.log('✓ 已为 activity_codes 添加规则列');
   }
-
-  // 创建活动代码 - 种子选手关联表（一个活动可以有多个种子选手）
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS activity_code_seeds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      activity_code_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(activity_code_id, user_id)
-    )
-  `);
-
-  // 创建活动代码 - 用户关联表
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS activity_code_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      activity_code_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (activity_code_id) REFERENCES activity_codes(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(activity_code_id, user_id)
-    )
-  `);
-
-  // 活动管理员邀请码表
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS admin_invite_codes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      admin_id INTEGER NOT NULL,
-      code VARCHAR(50) UNIQUE NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
 
   // 为 availability 表添加 activity_code 列
   const tableInfo2 = db.pragma('table_info(availability)');
@@ -271,8 +271,8 @@ function initDatabase() {
   for (const ac of defaultCodes) {
     const existing = ActivityCode.getByCode(ac.code);
     if (!existing) {
-      const adminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
-      ActivityCode.create(ac.code, ac.name, ac.description, adminUser.id);
+      const superAdmin = db.prepare('SELECT id FROM users WHERE role = ?').get('super_admin');
+      ActivityCode.create(ac.code, ac.name, ac.description, superAdmin.id);
       console.log(`✓ 创建活动代码：${ac.code} - ${ac.name}`);
     }
   }
@@ -285,29 +285,29 @@ function initDatabase() {
     { name: '刘洋', email: 'liuyang@example.com', password: '123456', activityCodes: ['BADMTON-2024'] },
     { name: '陈静', email: 'chenjing@example.com', password: '123456', activityCodes: ['BADMTON-2024'] }
   ];
+
+  // 为超级管理员和活动管理员也分配所有活动代码
+  const superAdminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('super_admin');
+  const activityAdminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('activity_admin');
   
-  // 为管理员和种子选手也分配所有活动代码
-  const adminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
-  const seedUser = db.prepare('SELECT id FROM users WHERE is_seed = ?').get(1);
-  
-  if (adminUser) {
+  if (superAdminUser) {
     for (const ac of defaultCodes) {
       const activityCode = ActivityCode.getByCode(ac.code);
       if (activityCode) {
-        ActivityCode.addUser(activityCode.id, adminUser.id);
+        ActivityCode.addUser(activityCode.id, superAdminUser.id);
       }
     }
-    console.log('✓ 管理员已分配到所有活动代码');
+    console.log('✓ 超级管理员已分配到所有活动代码');
   }
   
-  if (seedUser) {
+  if (activityAdminUser) {
     for (const ac of defaultCodes) {
       const activityCode = ActivityCode.getByCode(ac.code);
       if (activityCode) {
-        ActivityCode.addUser(activityCode.id, seedUser.id);
+        ActivityCode.addUser(activityCode.id, activityAdminUser.id);
       }
     }
-    console.log('✓ 种子选手已分配到所有活动代码');
+    console.log('✓ 活动管理员已分配到所有活动代码');
   }
   
   for (const u of defaultUsers) {
