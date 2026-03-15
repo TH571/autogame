@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文体活动自动组队系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/css/style.css" rel="stylesheet">
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary" id="navbar" style="display: none;">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <i class="bi bi-people-fill"></i> 文体活动组队
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-page="availability">
+              <i class="bi bi-calendar-check"></i> 时间申报
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-page="activities">
+              <i class="bi bi-trophy"></i> 活动结果
+            </a>
+          </li>
+          <li class="nav-item admin-only" style="display: none;">
+            <a class="nav-link" href="#" data-page="admin">
+              <i class="bi bi-gear"></i> 管理后台
+            </a>
+          </li>
+        </ul>
+        <div class="d-flex align-items-center">
+          <span class="navbar-text me-3" id="userInfo"></span>
+          <button class="btn btn-outline-light btn-sm" id="logoutBtn">
+            <i class="bi bi-box-arrow-right"></i> 退出
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主容器 -->
+  <div class="container mt-4">
+    <!-- 登录注册页面 -->
+    <div id="authPage">
+      <div class="row justify-content-center">
+        <div class="col-md-5">
+          <div class="card shadow">
+            <div class="card-body p-5">
+              <h2 class="text-center mb-4 text-primary">
+                <i class="bi bi-people-fill"></i> 文体活动组队
+              </h2>
+              
+              <!-- 登录表单 -->
+              <div id="loginForm">
+                <h4 class="mb-3">用户登录</h4>
+                <div class="alert alert-danger d-none" id="loginError"></div>
+                <form onsubmit="handleLogin(event)">
+                  <div class="mb-3">
+                    <label class="form-label">邮箱</label>
+                    <input type="email" class="form-control" id="loginEmail" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="loginPassword" required>
+                  </div>
+                  <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right"></i> 登录
+                  </button>
+                </form>
+                <div class="text-center mt-3">
+                  <a href="#" class="text-decoration-none" onclick="showRegister()">还没有账号？立即注册</a>
+                </div>
+              </div>
+
+              <!-- 注册表单 -->
+              <div id="registerForm" class="d-none">
+                <h4 class="mb-3">用户注册</h4>
+                <div class="alert alert-danger d-none" id="registerError"></div>
+                <form onsubmit="handleRegister(event)">
+                  <div class="mb-3">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" id="registerName" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">邮箱</label>
+                    <input type="email" class="form-control" id="registerEmail" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-control" id="registerPassword" required minlength="6">
+                    <div class="form-text">密码长度至少 6 位</div>
+                  </div>
+                  <button type="submit" class="btn btn-success w-100">
+                    <i class="bi bi-person-plus"></i> 注册
+                  </button>
+                </form>
+                <div class="text-center mt-3">
+                  <a href="#" class="text-decoration-none" onclick="showLogin()">已有账号？立即登录</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 时间申报页面 -->
+    <div id="availabilityPage" class="page-content d-none">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="bi bi-calendar-check"></i> 时间申报</h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 
+            请选择您未来 14 天内可以参加活动的时间。申报后只能修改 3 天后的时间。
+            <br><small>时间说明：下午 (14:00-18:00)、晚上 (19:00-22:00)、下午连晚上 (全天)</small>
+          </div>
+          
+          <div class="text-end mb-3">
+            <button class="btn btn-primary" onclick="submitAvailability()">
+              <i class="bi bi-check-lg"></i> 提交申报
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="availabilityTable">
+              <thead class="table-light">
+                <tr>
+                  <th>日期</th>
+                  <th>星期</th>
+                  <th>下午</th>
+                  <th>晚上</th>
+                  <th>下午连晚上</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="availabilityBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 活动结果页面 -->
+    <div id="activitiesPage" class="page-content d-none">
+      <div class="card shadow">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0"><i class="bi bi-trophy"></i> 活动结果</h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-success">
+            <i class="bi bi-info-circle"></i> 
+            此处展示您已加入的活动组队。系统会在组队完成后通过邮件通知您。
+          </div>
+          
+          <div id="myActivitiesList"></div>
+        </div>
+      </div>
+
+      <!-- 所有活动（公开） -->
+      <div class="card shadow mt-4">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0"><i class="bi bi-calendar-event"></i> 全部活动安排</h5>
+        </div>
+        <div class="card-body">
+          <div id="allActivitiesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 管理后台页面 -->
+    <div id="adminPage" class="page-content d-none">
+      <div class="card shadow">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-gear"></i> 管理后台</h5>
+          <button class="btn btn-light btn-sm" onclick="showCreateUserModal()">
+            <i class="bi bi-person-plus"></i> 新建用户
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="card">
+                <div class="card-header">自动组队</div>
+                <div class="card-body">
+                  <p>点击按钮执行未来 14 天的自动组队</p>
+                  <button class="btn btn-primary" onclick="buildTeams()">
+                    <i class="bi bi-robot"></i> 执行自动组队
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <div class="card">
+                <div class="card-header">用户统计</div>
+                <div class="card-body" id="userStats"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0">用户列表</h6>
+              <input type="text" class="form-control form-control-sm w-25" id="userSearch" 
+                     placeholder="搜索用户..." oninput="filterUsers()">
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>姓名</th>
+                    <th>邮箱</th>
+                    <th>角色</th>
+                    <th>种子选手</th>
+                    <th>注册时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUserList"></tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- 用户申报详情区域 -->
+          <div class="mt-4 d-none" id="userAvailabilitySection">
+            <div class="card border-primary">
+              <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0" id="selectedUserName">用户申报详情</h6>
+                <button class="btn btn-light btn-sm" onclick="closeAvailabilityDetail()">
+                  <i class="bi bi-x-lg"></i> 关闭
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="row mb-3">
+                  <div class="col-md-8">
+                    <div class="alert alert-info mb-0">
+                      <i class="bi bi-info-circle"></i> 
+                      点击时间段可切换选择状态，点击"保存修改"提交更改
+                    </div>
+                  </div>
+                  <div class="col-md-4 text-end">
+                    <button class="btn btn-success btn-sm" onclick="saveUserAvailability()">
+                      <i class="bi bi-check-lg"></i> 保存修改
+                    </button>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-bordered table-hover" id="userAvailabilityTable">
+                    <thead class="table-light">
+                      <tr>
+                        <th>日期</th>
+                        <th>星期</th>
+                        <th>下午</th>
+                        <th>晚上</th>
+                        <th>下午连晚上</th>
+                      </tr>
+                    </thead>
+                    <tbody id="userAvailabilityBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建/编辑用户模态框 -->
+    <div class="modal fade" id="userModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="userModalTitle">新建用户</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="userForm">
+              <input type="hidden" id="editUserId">
+              <div class="mb-3">
+                <label class="form-label">姓名 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="userName" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">邮箱 <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="userEmail" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">密码 <span class="text-danger" id="passwordRequired">*</span></label>
+                <input type="password" class="form-control" id="userPassword" minlength="6">
+                <div class="form-text">密码长度至少 6 位，编辑时留空表示不修改</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">角色 <span class="text-danger">*</span></label>
+                <select class="form-select" id="userRole" required>
+                  <option value="user">普通用户</option>
+                  <option value="admin">管理员</option>
+                  <option value="seed">种子选手</option>
+                </select>
+              </div>
+              <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" id="userIsSeed">
+                <label class="form-check-label">设为种子选手</label>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" onclick="saveUser()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> 确认删除</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p>确定要删除用户 <strong id="deleteUserName"></strong> 吗？</p>
+            <p class="text-danger small">此操作不可恢复，该用户的所有活动和申报记录也将被删除。</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDeleteUser()">删除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 通知 -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast" role="alert">
+      <div class="toast-header">
+        <i class="bi bi-bell-fill me-2"></i>
+        <strong class="me-auto">系统通知</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+      </div>
+      <div class="toast-body" id="toastBody"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

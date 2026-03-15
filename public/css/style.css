@@ -1,0 +1,266 @@
+/* 文体活动组队系统 - 样式文件 */
+
+:root {
+  --primary-color: #0d6efd;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+body {
+  background-color: #f8f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 导航栏 */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+/* 卡片样式 */
+.card {
+  border: none;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0,0,0,.1);
+}
+
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+  font-weight: 600;
+}
+
+/* 表格样式 */
+.table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table thead {
+  background-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f0f7ff;
+}
+
+/* 时间申报表格 */
+.availability-cell {
+  text-align: center;
+  cursor: pointer;
+  padding: 12px 8px;
+  transition: all 0.2s;
+}
+
+.availability-cell:hover {
+  background-color: #e9ecef;
+}
+
+.availability-cell.selected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.availability-cell.locked {
+  background-color: #f8d7da;
+  color: #721c24;
+  cursor: not-allowed;
+}
+
+/* 活动卡片 */
+.activity-card {
+  border-left: 4px solid var(--success-color);
+  margin-bottom: 1rem;
+}
+
+.activity-card.pending {
+  border-left-color: var(--warning-color);
+}
+
+.activity-card.completed {
+  border-left-color: var(--info-color);
+}
+
+.activity-card.cancelled {
+  border-left-color: var(--danger-color);
+  opacity: 0.7;
+}
+
+/* 徽章样式 */
+.badge-time {
+  font-size: 0.85rem;
+  padding: 0.35em 0.65em;
+}
+
+.badge-afternoon {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.badge-evening {
+  background-color: #6f42c1;
+  color: #fff;
+}
+
+.badge-fullday {
+  background-color: #fd7e14;
+  color: #fff;
+}
+
+/* 按钮样式 */
+.btn {
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,.1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color), #0b5ed7);
+  border: none;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--success-color), #146c43);
+  border: none;
+}
+
+/* 表单样式 */
+.form-control {
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  padding: 0.6rem 0.9rem;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* 警告提示 */
+.alert {
+  border-radius: 10px;
+  border: none;
+}
+
+.alert-info {
+  background-color: #e7f3ff;
+  color: #084298;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #842029;
+}
+
+/* Toast 通知 */
+.toast {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
+/* 页面内容 */
+.page-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 登录注册卡片 */
+#authPage .card {
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+}
+
+#authPage .card-body {
+  background: white;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* 加载动画 */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 种子选手标识 */
+.seed-badge {
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #000;
+  font-weight: 600;
+}
+
+/* 参与次数统计 */
+.participation-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+}
+
+.empty-state i {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
