@@ -60,7 +60,7 @@ class ActivityCodeModel {
   update(id, name, description, rules = {}) {
     const fields = ['name = ?', 'description = ?'];
     const values = [name, description];
-    
+
     if (rules.minPlayers !== undefined) {
       fields.push('min_players = ?');
       values.push(rules.minPlayers);
@@ -77,10 +77,9 @@ class ActivityCodeModel {
       fields.push('seed_required = ?');
       values.push(rules.seedRequired ? 1 : 0);
     }
-    
-    fields.push('updated_at = CURRENT_TIMESTAMP');
+
     values.push(id);
-    
+
     const stmt = this.db.prepare(`UPDATE activity_codes SET ${fields.join(', ')} WHERE id = ?`);
     return stmt.run(...values);
   }

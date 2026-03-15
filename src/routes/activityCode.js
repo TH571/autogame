@@ -71,7 +71,11 @@ router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
       return res.status(404).json({ error: '活动代码不存在' });
     }
 
-    // 合并现有规则和新规则
+    // 使用新值或现有值
+    const updatedName = name || existing.name;
+    const updatedDescription = description !== undefined ? description : existing.description;
+    
+    // 合并规则
     const updatedRules = {
       minPlayers: rules?.minPlayers !== undefined ? rules.minPlayers : existing.min_players,
       maxPlayers: rules?.maxPlayers !== undefined ? rules.maxPlayers : existing.max_players,
@@ -79,12 +83,12 @@ router.put('/codes/:id', authMiddleware, adminMiddleware, (req, res) => {
       seedRequired: rules?.seedRequired !== undefined ? rules.seedRequired : (existing.seed_required === 1)
     };
 
-    ActivityCode.update(id, name || existing.name, description !== undefined ? description : existing.description, updatedRules);
+    ActivityCode.update(id, updatedName, updatedDescription, updatedRules);
 
     res.json({ message: '活动代码更新成功' });
   } catch (error) {
     console.error('更新活动代码错误:', error);
-    res.status(500).json({ error: '更新活动代码失败' });
+    res.status(500).json({ error: '更新活动代码失败：' + error.message });
   }
 });
 
