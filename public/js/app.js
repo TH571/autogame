@@ -836,6 +836,7 @@ async function confirmDeleteUser() {
 // 查看用户申报详情
 let currentViewUserId = null;
 let currentUserAvailabilities = [];
+let currentUserActivityCode = null; // 当前用户的活动代码
 
 async function viewUserAvailability(userId) {
   try {
@@ -845,6 +846,27 @@ async function viewUserAvailability(userId) {
     document.getElementById('selectedUserName').textContent =
       `${data.user.name} (${data.user.email}) - 申报详情`;
     document.getElementById('userAvailabilitySection').classList.remove('d-none');
+
+    // 加载所有活动代码
+    await loadAllActivityCodesForAdmin();
+
+    // 获取用户当前分配的活动代码
+    const allCodesData = await apiRequest('/activity/codes');
+    const allCodes = allCodesData.codes || [];
+    
+    // 查找用户已分配的活动代码
+    let userCode = null;
+    for (const code of allCodes) {
+      const usersData = await apiRequest(`/activity/codes/${code.id}/users`);
+      const users = usersData.users || [];
+      if (users.some(u => u.id === userId)) {
+        userCode = code.code;
+        break;
+      }
+    }
+    
+    currentUserActivityCode = userCode;
+    document.getElementById('userActivityCodeSelect').value = userCode || '';
 
     // 加载未来 14 天日期
     const datesData = await apiRequest('/availability/dates/next14');
@@ -866,7 +888,7 @@ async function viewUserAvailability(userId) {
       const afternoon = item.slots[1];
       const evening = item.slots[2];
       const fullDay = item.slots[3];
-      
+
       // 检查是否已申报（包括全天）
       const hasAfternoon = availMap[`${item.date}-1`] || availMap[`${item.date}-3`];
       const hasEvening = availMap[`${item.date}-2`] || availMap[`${item.date}-3`];
@@ -875,15 +897,15 @@ async function viewUserAvailability(userId) {
         <td>${item.date}</td>
         <td>${item.dayOfWeek}</td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox" 
-                 data-date="${item.date}" data-slot="1" 
+          <input type="checkbox" class="form-check-input time-checkbox"
+                 data-date="${item.date}" data-slot="1"
                  ${hasAfternoon ? 'checked' : ''}
                  onclick="toggleUserCheckbox(this)">
           <label class="form-check-label">下午</label>
         </td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox" 
-                 data-date="${item.date}" data-slot="2" 
+          <input type="checkbox" class="form-check-input time-checkbox"
+                 data-date="${item.date}" data-slot="2"
                  ${hasEvening ? 'checked' : ''}
                  onclick="toggleUserCheckbox(this)">
           <label class="form-check-label">晚上</label>
@@ -901,6 +923,26 @@ async function viewUserAvailability(userId) {
     document.getElementById('userAvailabilitySection').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
     showToast('加载申报详情失败：' + error.message, 'danger');
+  }
+}
+
+// 加载所有活动代码（管理员）
+async function loadAllActivityCodesForAdmin() {
+  try {
+    const data = await apiRequest('/activity/codes');
+    const codes = data.codes || [];
+    
+    const select = document.getElementById('userActivityCodeSelect');
+    select.innerHTML = '<option value="">-- 请选择活动代码 --</option>';
+    
+    codes.forEach(code => {
+      const option = document.createElement('option');
+      option.value = code.code;
+      option.textContent = `${code.code} - ${code.name}`;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error('加载活动代码失败:', error);
   }
 }
 
@@ -934,16 +976,49 @@ function closeAvailabilityDetail() {
 // 保存用户申报修改
 async function saveUserAvailability() {
   if (!currentViewUserId) return;
+
+  const activityCode = document.getElementById('userActivityCodeSelect').value;
   
+  if (!activityCode) {
+    showToast('请选择活动代码', 'warning');
+    return;
+  }
+
   try {
+    // 首先更新用户的活动代码分配
+    const allCodesData = await apiRequest('/activity/codes');
+    const allCodes = allCodesData.codes || [];
+    
+    // 找到当前选择的活动代码 ID
+    const selectedCode = allCodes.find(c => c.code === activityCode);
+    if (selectedCode) {
+      // 先移除用户在所有活动代码中的分配
+      for (const code of allCodes) {
+        await apiRequest(`/activity/codes/${code.id}/users/${currentViewUserId}`, { 
+          method: 'DELETE' 
+        }).catch(() => {}); // 忽略错误（可能用户不在该代码中）
+      }
+      
+      // 添加用户到新的活动代码
+      await apiRequest(`/activity/codes/${selectedCode.id}/users`, {
+        method: 'POST',
+        body: JSON.stringify({ userIds: [currentViewUserId] })
+      });
+    }
+    
+    // 然后保存申报时间
     await apiRequest(`/admin/availabilities/${currentViewUserId}/batch`, {
       method: 'POST',
-      body: JSON.stringify({ availabilities: currentUserAvailabilities })
+      body: JSON.stringify({ 
+        availabilities: currentUserAvailabilities,
+        activityCode 
+      })
     });
-    
+
     showToast('申报修改成功', 'success');
     closeAvailabilityDetail();
   } catch (error) {
+    console.error('保存错误:', error);
     showToast('保存失败：' + error.message, 'danger');
   }
 }

@@ -280,18 +280,29 @@
               </div>
               <div class="card-body">
                 <div class="row mb-3">
-                  <div class="col-md-8">
+                  <div class="col-md-12">
                     <div class="alert alert-info mb-0">
                       <i class="bi bi-info-circle"></i>
                       勾选下午/晚上，点击"保存修改"提交更改
                     </div>
                   </div>
-                  <div class="col-md-4 text-end">
-                    <button class="btn btn-success btn-sm" onclick="saveUserAvailability()">
-                      <i class="bi bi-check-lg"></i> 保存修改
-                    </button>
-                  </div>
                 </div>
+                
+                <!-- 活动代码选择 -->
+                <div class="mb-3">
+                  <label class="form-label"><strong>活动代码</strong></label>
+                  <select class="form-select" id="userActivityCodeSelect">
+                    <option value="">-- 请选择活动代码 --</option>
+                  </select>
+                  <div class="form-text">用户只能为已分配的活动代码申报时间</div>
+                </div>
+                
+                <div class="text-end mb-3">
+                  <button class="btn btn-success" onclick="saveUserAvailability()">
+                    <i class="bi bi-check-lg"></i> 保存修改
+                  </button>
+                </div>
+                
                 <div class="table-responsive">
                   <table class="table table-bordered table-hover" id="userAvailabilityTable">
                     <thead class="table-light">
