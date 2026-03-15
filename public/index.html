@@ -233,7 +233,8 @@
                         <th>代码</th>
                         <th>名称</th>
                         <th>描述</th>
-                        <th>用户数</th>
+                        <th>规则</th>
+                        <th>用户/种子</th>
                         <th>创建时间</th>
                         <th>操作</th>
                       </tr>
@@ -484,6 +485,74 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
             <button type="button" class="btn btn-primary" onclick="saveAssignedUsers()">保存分配</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 管理种子选手模态框 -->
+    <div class="modal fade" id="manageSeedsModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">管理种子选手 - <span id="seedCodeName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-warning">
+              <i class="bi bi-star-fill"></i> <strong>种子选手</strong>：只有种子选手有空的时间段才会组织活动
+            </div>
+            <div class="mb-3">
+              <label class="form-label">选择种子选手</label>
+              <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;" id="seedCheckboxes">
+                <!-- 种子选手复选框将在这里生成 -->
+              </div>
+            </div>
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle"></i> 可以为活动指定多个种子选手
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" onclick="saveAssignedSeeds()">保存分配</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑活动规则模态框 -->
+    <div class="modal fade" id="editRulesModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">编辑活动规则 - <span id="rulesCodeName"></span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">最低组局人数</label>
+              <input type="number" class="form-control" id="editMinPlayers" value="4" min="2" max="10">
+              <div class="form-text">达到此人数即可组队</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">最高组局人数</label>
+              <input type="number" class="form-control" id="editMaxPlayers" value="4" min="2" max="10">
+              <div class="form-text">每队最多人数</div>
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="editRequireSeed">
+              <label class="form-check-label">需要种子选手参与</label>
+              <div class="form-text">只有种子选手有空的时间段才会组织活动</div>
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="editSeedRequired">
+              <label class="form-check-label">种子选手强制参与每场</label>
+              <div class="form-text">种子选手必须参加每场活动</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" onclick="saveActivityRules()">保存规则</button>
           </div>
         </div>
       </div>

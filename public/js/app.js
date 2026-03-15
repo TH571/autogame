@@ -498,12 +498,29 @@ async function loadActivityCodes() {
         <td><strong>${code.code}</strong></td>
         <td>${code.name}</td>
         <td>${code.description || '-'}</td>
-        <td><span class="badge bg-primary">${code.user_count || 0}人</span></td>
+        <td>
+          <small>
+            <div>最少：${code.min_players}人</div>
+            <div>最多：${code.max_players}人</div>
+            <div>${code.require_seed ? '需种子' : '无需种子'}</div>
+            <div>${code.seed_required ? '强制参与' : '可选'}</div>
+          </small>
+        </td>
+        <td>
+          <span class="badge bg-primary">${code.user_count || 0}用户</span>
+          <span class="badge bg-warning text-dark">${code.seed_count || 0}种子</span>
+        </td>
         <td><small class="text-muted">${formatDateCN(code.created_at)}</small></td>
         <td>
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
               <i class="bi bi-people"></i>
+            </button>
+            <button class="btn btn-outline-warning" onclick="showManageSeedsModal(${code.id}, '${code.name}')" title="管理种子">
+              <i class="bi bi-star"></i>
+            </button>
+            <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
+              <i class="bi bi-sliders"></i>
             </button>
             <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
               <i class="bi bi-trash"></i>
@@ -514,7 +531,7 @@ async function loadActivityCodes() {
     `).join('');
     
     if (codes.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
     }
   } catch (error) {
     showToast('加载活动代码失败：' + error.message, 'danger');
@@ -613,22 +630,134 @@ async function showAssignUserModal(codeId, codeName) {
 // 保存分配的用户
 async function saveAssignedUsers() {
   if (!currentCodeId) return;
-  
+
   const checkboxes = document.querySelectorAll('.user-checkbox:checked');
   const userIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  
+
   try {
     await apiRequest(`/activity/codes/${currentCodeId}/users`, {
       method: 'POST',
       body: JSON.stringify({ userIds })
     });
-    
+
     showToast('用户分配成功', 'success');
     const modal = bootstrap.Modal.getInstance(document.getElementById('assignUserModal'));
     modal.hide();
     loadActivityCodes();
   } catch (error) {
     showToast('分配失败：' + error.message, 'danger');
+  }
+}
+
+// ========== 种子选手管理 ==========
+
+let currentSeedCodeId = null;
+
+// 显示管理种子选手模态框
+async function showManageSeedsModal(codeId, codeName) {
+  currentSeedCodeId = codeId;
+  document.getElementById('seedCodeName').textContent = codeName;
+
+  try {
+    // 加载所有用户
+    const usersData = await apiRequest('/activity/users/all');
+    const allUsers = usersData.users || [];
+
+    // 加载已分配的种子选手
+    const seedsData = await apiRequest(`/activity/codes/${codeId}/seeds`);
+    const seedIds = new Set((seedsData.seeds || []).map(s => s.id));
+
+    // 生成复选框
+    const container = document.getElementById('seedCheckboxes');
+    container.innerHTML = allUsers.map(u => `
+      <div class="form-check">
+        <input class="form-check-input seed-checkbox" type="checkbox" value="${u.id}" id="seed_${u.id}" ${seedIds.has(u.id) ? 'checked' : ''}>
+        <label class="form-check-label" for="seed_${u.id}">
+          ${u.name} (${u.email}) ${u.role === 'admin' ? '<span class="badge bg-danger">管理</span>' : ''}
+        </label>
+      </div>
+    `).join('');
+
+    const modal = new bootstrap.Modal(document.getElementById('manageSeedsModal'));
+    modal.show();
+  } catch (error) {
+    console.error('加载种子选手列表失败:', error);
+    showToast('加载种子选手列表失败：' + error.message, 'danger');
+  }
+}
+
+// 保存分配的种子选手
+async function saveAssignedSeeds() {
+  if (!currentSeedCodeId) return;
+
+  const checkboxes = document.querySelectorAll('.seed-checkbox:checked');
+  const userIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+  try {
+    await apiRequest(`/activity/codes/${currentSeedCodeId}/seeds`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds })
+    });
+
+    showToast('种子选手分配成功', 'success');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('manageSeedsModal'));
+    modal.hide();
+    loadActivityCodes();
+  } catch (error) {
+    showToast('分配失败：' + error.message, 'danger');
+  }
+}
+
+// ========== 编辑活动规则 ==========
+
+let currentRulesCodeId = null;
+
+// 显示编辑规则模态框
+async function showEditRulesModal(codeId, codeName) {
+  currentRulesCodeId = codeId;
+  document.getElementById('rulesCodeName').textContent = codeName;
+
+  try {
+    // 加载活动代码详情
+    const codeData = await apiRequest(`/activity/codes/${codeId}`);
+    const code = codeData;
+
+    document.getElementById('editMinPlayers').value = code.min_players || 4;
+    document.getElementById('editMaxPlayers').value = code.max_players || 4;
+    document.getElementById('editRequireSeed').checked = code.require_seed !== 0;
+    document.getElementById('editSeedRequired').checked = code.seed_required !== 0;
+
+    const modal = new bootstrap.Modal(document.getElementById('editRulesModal'));
+    modal.show();
+  } catch (error) {
+    console.error('加载活动规则失败:', error);
+    showToast('加载活动规则失败：' + error.message, 'danger');
+  }
+}
+
+// 保存活动规则
+async function saveActivityRules() {
+  if (!currentRulesCodeId) return;
+
+  const minPlayers = parseInt(document.getElementById('editMinPlayers').value) || 4;
+  const maxPlayers = parseInt(document.getElementById('editMaxPlayers').value) || 4;
+  const requireSeed = document.getElementById('editRequireSeed').checked;
+  const seedRequired = document.getElementById('editSeedRequired').checked;
+
+  try {
+    await apiRequest(`/activity/codes/${currentRulesCodeId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        rules: { minPlayers, maxPlayers, requireSeed, seedRequired }
+      })
+    });
+
+    showToast('活动规则更新成功', 'success');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editRulesModal'));
+    modal.hide();
+    loadActivityCodes();
+  } catch (error) {
+    showToast('更新失败：' + error.message, 'danger');
   }
 }
 
