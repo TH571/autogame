@@ -185,6 +185,51 @@ function initDatabase() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_availability_activity_code ON availability(activity_code)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_code_users ON activity_code_users(activity_code_id, user_id)`);
 
+  // 创建默认活动代码
+  const ActivityCode = require('../models/ActivityCode');
+  const User = require('../models/User');
+  const defaultCodes = [
+    { code: 'BASKETBALL-2024', name: '篮球活动', description: '每周篮球活动' },
+    { code: 'BADMTON-2024', name: '羽毛球活动', description: '周末羽毛球活动' }
+  ];
+  
+  for (const ac of defaultCodes) {
+    const existing = ActivityCode.getByCode(ac.code);
+    if (!existing) {
+      const adminUser = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
+      ActivityCode.create(ac.code, ac.name, ac.description, adminUser.id);
+      console.log(`✓ 创建活动代码：${ac.code} - ${ac.name}`);
+    }
+  }
+
+  // 创建默认普通用户
+  const defaultUsers = [
+    { name: '王强', email: 'wangqiang@example.com', password: '123456', activityCodes: ['BASKETBALL-2024'] },
+    { name: '李娜', email: 'lina@example.com', password: '123456', activityCodes: ['BASKETBALL-2024'] },
+    { name: '张敏', email: 'zhangmin@example.com', password: '123456', activityCodes: ['BASKETBALL-2024', 'BADMTON-2024'] },
+    { name: '刘洋', email: 'liuyang@example.com', password: '123456', activityCodes: ['BADMTON-2024'] },
+    { name: '陈静', email: 'chenjing@example.com', password: '123456', activityCodes: ['BADMTON-2024'] }
+  ];
+  
+  for (const u of defaultUsers) {
+    const existing = User.findByEmail(u.email);
+    if (!existing) {
+      const hashedPassword = bcrypt.hashSync(u.password, 10);
+      const result = User.create(u.email, hashedPassword, u.name, 'user');
+      const userId = result.lastInsertRowid;
+      
+      // 分配用户到活动代码
+      for (const code of u.activityCodes) {
+        const activityCode = ActivityCode.getByCode(code);
+        if (activityCode) {
+          ActivityCode.addUser(activityCode.id, userId);
+        }
+      }
+      
+      console.log(`✓ 创建用户：${u.name} (${u.email}) - 活动：${u.activityCodes.join(', ')}`);
+    }
+  }
+
   console.log('✓ 数据库初始化完成');
   console.log(`✓ 数据库路径：${process.env.DATABASE_PATH || './data/autogame.db'}`);
 }
