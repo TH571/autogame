@@ -1,144 +1,136 @@
-/**
- * Availability 模型
- * 支持 SQLite 和 Vercel Postgres
- */
-
-const db = require('../utils/database');
+const { getDb } = require('../utils/init-db');
 
 class AvailabilityModel {
+  constructor() {
+    this.db = getDb();
+  }
+
   // 添加可用时间
-  async add(userId, date, timeSlot, activityCode = null) {
-    const sql = db.isVercel ? `
-      INSERT INTO availability (user_id, date, time_slot, activity_code, last_modified)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-      ON CONFLICT (user_id, date, time_slot) DO UPDATE SET
-        updated_at = CURRENT_TIMESTAMP,
-        last_modified = CURRENT_TIMESTAMP,
-        activity_code = $4
-    ` : `
+  add(userId, date, timeSlot, activityCode = null) {
+    const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified, activity_code)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
-    `;
-    
-    const params = db.isVercel ? [userId, date, timeSlot, activityCode] : [userId, date, timeSlot, activityCode];
-    return await db.execute(sql, params);
+    `);
+    return stmt.run(userId, date, timeSlot, activityCode);
   }
 
   // 批量添加可用时间
-  async addBatch(userId, availabilities) {
-    for (const av of availabilities) {
-      await this.add(userId, av.date, av.timeSlot, av.activityCode);
-    }
+  addBatch(userId, availabilities) {
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO availability (user_id, date, time_slot, updated_at, last_modified, activity_code)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+    `);
+
+    const insertMany = this.db.transaction((userId, availabilities) => {
+      for (const av of availabilities) {
+        stmt.run(userId, av.date, av.timeSlot, av.activityCode || null);
+      }
+    });
+
+    return insertMany(userId, availabilities);
   }
 
   // 删除可用时间
-  async remove(userId, date, timeSlot) {
-    const sql = db.isVercel
-      ? 'DELETE FROM availability WHERE user_id = $1 AND date = $2 AND time_slot = $3'
-      : 'DELETE FROM availability WHERE user_id = ? AND date = ? AND time_slot = ?';
-    
-    return await db.execute(sql, db.isVercel ? [userId, date, timeSlot] : [userId, date, timeSlot]);
+  remove(userId, date, timeSlot) {
+    const stmt = this.db.prepare(`
+      DELETE FROM availability
+      WHERE user_id = ? AND date = ? AND time_slot = ?
+    `);
+    return stmt.run(userId, date, timeSlot);
   }
 
   // 获取用户的可用时间
-  async getByUser(userId) {
-    const sql = db.isVercel
-      ? 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = $1 ORDER BY date, time_slot'
-      : 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = ? ORDER BY date, time_slot';
-    
-    return await db.queryAll(sql, db.isVercel ? [userId] : [userId]);
+  getByUser(userId) {
+    const stmt = this.db.prepare(`
+      SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified
+      FROM availability
+      WHERE user_id = ?
+      ORDER BY date, time_slot
+    `);
+    return stmt.all(userId);
   }
 
   // 获取用户在活动代码中的可用时间
-  async getByUserAndCode(userId, activityCode) {
-    const sql = db.isVercel
-      ? 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = $1 AND activity_code = $2 ORDER BY date, time_slot'
-      : 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = ? AND activity_code = ? ORDER BY date, time_slot';
-    
-    return await db.queryAll(sql, db.isVercel ? [userId, activityCode] : [userId, activityCode]);
+  getByUserAndCode(userId, activityCode) {
+    const stmt = this.db.prepare(`
+      SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified
+      FROM availability
+      WHERE user_id = ? AND activity_code = ?
+      ORDER BY date, time_slot
+    `);
+    return stmt.all(userId, activityCode);
   }
 
   // 获取指定日期和时间段的所有可用用户
-  async getByDateAndSlot(date, timeSlot, activityCode = null) {
-    let sql, params;
+  getByDateAndSlot(date, timeSlot, activityCode = null) {
+    let sql = `
+      SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot, a.activity_code
+      FROM availability a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.date = ? AND a.time_slot = ?
+    `;
     
     if (activityCode) {
-      sql = db.isVercel ? `
-        SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot, a.activity_code
-        FROM availability a
-        JOIN users u ON a.user_id = u.id
-        WHERE a.date = $1 AND a.time_slot = $2 AND a.activity_code = $3
-        ORDER BY u.id
-      ` : `
-        SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot, a.activity_code
-        FROM availability a
-        JOIN users u ON a.user_id = u.id
-        WHERE a.date = ? AND a.time_slot = ? AND a.activity_code = ?
-        ORDER BY u.id
-      `;
-      params = db.isVercel ? [date, timeSlot, activityCode] : [date, timeSlot, activityCode];
-    } else {
-      sql = db.isVercel ? `
-        SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot
-        FROM availability a
-        JOIN users u ON a.user_id = u.id
-        WHERE a.date = $1 AND a.time_slot = $2
-        ORDER BY u.id
-      ` : `
-        SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot
-        FROM availability a
-        JOIN users u ON a.user_id = u.id
-        WHERE a.date = ? AND a.time_slot = ?
-        ORDER BY u.id
-      `;
-      params = db.isVercel ? [date, timeSlot] : [date, timeSlot];
+      sql += ` AND a.activity_code = ?`;
+      return this.db.prepare(sql).all(date, timeSlot, activityCode);
     }
     
-    return await db.queryAll(sql, params);
+    sql += ` ORDER BY u.id`;
+    return this.db.prepare(sql).all(date, timeSlot);
   }
 
   // 获取活动代码中指定日期和时间段的所有可用用户
-  async getByDateSlotAndCode(date, timeSlot, activityCode) {
-    const sql = db.isVercel ? `
-      SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot
-      FROM availability a
-      JOIN users u ON a.user_id = u.id
-      WHERE a.date = $1 AND a.time_slot = $2 AND a.activity_code = $3
-      ORDER BY u.id
-    ` : `
+  getByDateSlotAndCode(date, timeSlot, activityCode) {
+    const stmt = this.db.prepare(`
       SELECT u.id, u.email, u.name, u.role, u.is_seed, a.date, a.time_slot
       FROM availability a
       JOIN users u ON a.user_id = u.id
       WHERE a.date = ? AND a.time_slot = ? AND a.activity_code = ?
       ORDER BY u.id
-    `;
-    
-    return await db.queryAll(sql, db.isVercel ? [date, timeSlot, activityCode] : [date, timeSlot, activityCode]);
+    `);
+    return stmt.all(date, timeSlot, activityCode);
+  }
+
+  // 获取未来 14 天某时间段的所有可用用户
+  getAvailableUsersForPeriod(startDate, endDate, timeSlot) {
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT u.id, u.email, u.name, u.role, u.is_seed
+      FROM availability a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.date BETWEEN ? AND ?
+      AND a.time_slot = ?
+      ORDER BY u.id
+    `);
+    return stmt.all(startDate, endDate, timeSlot);
   }
 
   // 检查用户在某日期时间段的可用性
-  async checkAvailability(userId, date, timeSlot) {
-    const sql = db.isVercel
-      ? 'SELECT * FROM availability WHERE user_id = $1 AND date = $2 AND time_slot = $3'
-      : 'SELECT * FROM availability WHERE user_id = ? AND date = ? AND time_slot = ?';
-    
-    return await db.queryOne(sql, db.isVercel ? [userId, date, timeSlot] : [userId, date, timeSlot]);
+  checkAvailability(userId, date, timeSlot) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM availability
+      WHERE user_id = ? AND date = ? AND time_slot = ?
+    `);
+    return stmt.get(userId, date, timeSlot);
   }
 
   // 获取用户在某天所有时间段
-  async getByUserAndDate(userId, date) {
-    const sql = db.isVercel
-      ? 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = $1 AND date = $2 ORDER BY time_slot'
-      : 'SELECT id, user_id, date, time_slot, activity_code, created_at, last_modified FROM availability WHERE user_id = ? AND date = ? ORDER BY time_slot';
-    
-    return await db.queryAll(sql, db.isVercel ? [userId, date] : [userId, date]);
+  getByUserAndDate(userId, date) {
+    const stmt = this.db.prepare(`
+      SELECT id, user_id, date, time_slot, created_at, last_modified
+      FROM availability
+      WHERE user_id = ? AND date = ?
+      ORDER BY time_slot
+    `);
+    return stmt.all(userId, date);
   }
 
-  // 检查申报是否可以修改（24 小时后悔期逻辑）
-  async canModify(userId, date, timeSlot) {
-    const existing = await this.checkAvailability(userId, date, timeSlot);
-
+  // 检查申报是否可以修改
+  // 规则：提交后 24 小时内可以修改任何时间，24 小时后只能修改 3 天后的时间
+  canModify(userId, date, timeSlot) {
+    const existing = this.checkAvailability(userId, date, timeSlot);
+    
     if (!existing) {
+      // 新申报，可以添加
       return { canModify: true, reason: '' };
     }
 
@@ -161,21 +153,37 @@ class AvailabilityModel {
       return { canModify: true, reason: 'future_date' };
     }
 
-    return {
-      canModify: false,
+    return { 
+      canModify: false, 
       reason: 'locked',
       lastModified: existing.last_modified,
       hoursRemaining: Math.ceil(24 - hoursSinceLastModified)
     };
   }
 
-  // 清理过期的申报
-  async cleanupExpired() {
-    const sql = db.isVercel
-      ? 'DELETE FROM availability WHERE date < CURRENT_DATE'
-      : 'DELETE FROM availability WHERE date < date("now")';
+  // 获取可修改的申报
+  getModifiableAvailabilities(userId) {
+    const stmt = this.db.prepare(`
+      SELECT * FROM availability
+      WHERE user_id = ?
+      ORDER BY date, time_slot
+    `);
+    const all = stmt.all(userId);
     
-    return await db.execute(sql);
+    // 过滤出可以修改的
+    return all.filter(a => {
+      const result = this.canModify(userId, a.date, a.time_slot);
+      return result.canModify;
+    });
+  }
+
+  // 清理过期的申报
+  cleanupExpired() {
+    const stmt = this.db.prepare(`
+      DELETE FROM availability
+      WHERE date < date('now')
+    `);
+    return stmt.run();
   }
 }
 

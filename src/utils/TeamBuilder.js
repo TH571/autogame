@@ -1,4 +1,4 @@
-const db = require('./database');
+const { getDb } = require('../utils/init-db');
 const Activity = require('../models/Activity');
 const Availability = require('../models/Availability');
 const User = require('../models/User');
@@ -17,7 +17,7 @@ const ActivityCode = require('../models/ActivityCode');
  */
 class TeamBuilderService {
   constructor() {
-    // 不需要初始化数据库，模型会自动处理
+    this.db = getDb();
   }
 
   /**
@@ -129,9 +129,12 @@ class TeamBuilderService {
     Activity.addMembersBatch(activityId, allMemberIds);
 
     // 记录参与历史
-    for (const userId of allMemberIds) {
-      Activity.addParticipationRecord(userId, activityId, date, timeSlot);
-    }
+    const transaction = this.db.transaction(() => {
+      for (const userId of allMemberIds) {
+        Activity.addParticipationRecord(userId, activityId, date, timeSlot);
+      }
+    });
+    transaction();
 
     console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 组队成功，成员：${seedUser.name} + ${selectedUsers.map(u => u.name).join(', ')}`);
 
