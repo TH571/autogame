@@ -243,117 +243,83 @@ async function loadAvailabilityDates() {
       
       const afternoon = item.slots[1];
       const evening = item.slots[2];
+      
+      // 检查是否有全天选项（下午连晚上）
       const fullDay = item.slots[3];
+      const hasAfternoon = afternoon.exists || fullDay.exists;
+      const hasEvening = evening.exists || fullDay.exists;
       
       tr.innerHTML = `
         <td>${item.date}</td>
         <td>${item.dayOfWeek}</td>
-        <td class="availability-cell ${afternoon.exists ? 'selected' : ''} ${afternoon.isLocked ? 'locked' : ''}" 
-            data-date="${item.date}" data-slot="1" onclick="toggleAvailability(this)">
-          ${getCellContent(afternoon)}
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input time-checkbox" 
+                 data-date="${item.date}" data-slot="1" 
+                 ${hasAfternoon ? 'checked' : ''} 
+                 ${afternoon.isLocked || fullDay.isLocked ? 'disabled' : ''}
+                 onclick="toggleTimeCheckbox(this)">
+          <label class="form-check-label">下午</label>
         </td>
-        <td class="availability-cell ${evening.exists ? 'selected' : ''} ${evening.isLocked ? 'locked' : ''}"
-            data-date="${item.date}" data-slot="2" onclick="toggleAvailability(this)">
-          ${getCellContent(evening)}
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input time-checkbox" 
+                 data-date="${item.date}" data-slot="2" 
+                 ${hasEvening ? 'checked' : ''} 
+                 ${evening.isLocked || fullDay.isLocked ? 'disabled' : ''}
+                 onclick="toggleTimeCheckbox(this)">
+          <label class="form-check-label">晚上</label>
         </td>
-        <td class="availability-cell ${fullDay.exists ? 'selected' : ''} ${fullDay.isLocked ? 'locked' : ''}"
-            data-date="${item.date}" data-slot="3" onclick="toggleAvailability(this)">
-          ${getCellContent(fullDay)}
-        </td>
-        <td>${getStatusBadge(item)}</td>
+        <td>${getStatusBadgeForDay(item)}</td>
       `;
       
       tbody.appendChild(tr);
       
       // 添加到已选择列表
-      if (afternoon.exists) selectedAvailabilities.push({ date: item.date, timeSlot: 1, isLocked: afternoon.isLocked });
-      if (evening.exists) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked });
-      if (fullDay.exists) selectedAvailabilities.push({ date: item.date, timeSlot: 3, isLocked: fullDay.isLocked });
+      if (hasAfternoon) selectedAvailabilities.push({ date: item.date, timeSlot: 1, isLocked: afternoon.isLocked || fullDay.isLocked });
+      if (hasEvening) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked || fullDay.isLocked });
     });
   } catch (error) {
     showToast('加载日期失败：' + error.message, 'danger');
   }
 }
 
-// 获取单元格显示内容
-function getCellContent(slot) {
-  if (!slot.exists) {
-    return slot === 1 ? '下午' : slot === 2 ? '晚上' : '全天';
-  }
-  if (slot.isLocked) {
-    return `🔒${slot.hoursRemaining > 0 ? ` ${slot.hoursRemaining}h` : ''}`;
-  }
-  return `✓ ${slot.reason === 'regret_period' ? '🕐' : ''}`;
-}
-
-// 获取状态徽章
-function getStatusBadge(item) {
+// 获取状态徽章（简化版）
+function getStatusBadgeForDay(item) {
   const slots = [item.slots[1], item.slots[2], item.slots[3]];
   const locked = slots.filter(s => s.isLocked).length;
   const regret = slots.filter(s => s.exists && s.reason === 'regret_period').length;
   
   if (regret > 0) {
-    return `<span class="badge bg-success">后悔期 (${regret})</span>`;
+    return `<span class="badge bg-success">后悔期</span>`;
   }
   if (locked > 0) {
-    return `<span class="badge bg-secondary">已锁定 (${locked})</span>`;
+    return `<span class="badge bg-secondary">已锁定</span>`;
   }
   return `<span class="badge bg-light text-dark">-</span>`;
 }
 
-// 切换时间选择
-function toggleAvailability(cell) {
-  if (cell.classList.contains('locked')) {
-    const date = cell.dataset.date;
-    const slot = parseInt(cell.dataset.slot);
-    const item = selectedAvailabilities.find(a => a.date === date && a.timeSlot === slot);
-    if (item && item.isLocked) {
-      showToast('该时间段已锁定，24 小时后悔期过后可修改 3 天后的时间', 'warning');
-    }
+// 切换时间勾选框
+function toggleTimeCheckbox(checkbox) {
+  const date = checkbox.dataset.date;
+  const slot = parseInt(checkbox.dataset.slot);
+  
+  if (checkbox.disabled) {
+    showToast('该时间段已锁定，无法修改', 'warning');
+    checkbox.checked = !checkbox.checked; // 恢复原状态
     return;
   }
   
-  const date = cell.dataset.date;
-  const slot = parseInt(cell.dataset.slot);
-  
   const index = selectedAvailabilities.findIndex(a => a.date === date && a.timeSlot === slot);
   
-  if (index >= 0) {
-    // 取消选择
-    selectedAvailabilities.splice(index, 1);
-    cell.classList.remove('selected');
-    cell.textContent = slot === 1 ? '下午' : slot === 2 ? '晚上' : '全天';
+  if (checkbox.checked) {
+    // 勾选
+    if (index < 0) {
+      selectedAvailabilities.push({ date, timeSlot: slot, isLocked: false });
+    }
   } else {
-    // 选择
-    // 如果选择全天，取消下午和晚上
-    if (slot === 3) {
-      const afternoonCell = document.querySelector(`[data-date="${date}"][data-slot="1"]`);
-      const eveningCell = document.querySelector(`[data-date="${date}"][data-slot="2"]`);
-      
-      selectedAvailabilities = selectedAvailabilities.filter(
-        a => !(a.date === date && (a.timeSlot === 1 || a.timeSlot === 2))
-      );
-      
-      afternoonCell.classList.remove('selected');
-      afternoonCell.textContent = '下午';
-      eveningCell.classList.remove('selected');
-      eveningCell.textContent = '晚上';
+    // 取消勾选
+    if (index >= 0) {
+      selectedAvailabilities.splice(index, 1);
     }
-    
-    // 如果已选全天，选择下午或晚上时要取消全天
-    if (slot === 1 || slot === 2) {
-      const fullDayIndex = selectedAvailabilities.findIndex(a => a.date === date && a.timeSlot === 3);
-      if (fullDayIndex >= 0) {
-        selectedAvailabilities.splice(fullDayIndex, 1);
-        const fullDayCell = document.querySelector(`[data-date="${date}"][data-slot="3"]`);
-        fullDayCell.classList.remove('selected');
-        fullDayCell.textContent = '全天';
-      }
-    }
-    
-    selectedAvailabilities.push({ date, timeSlot: slot, isLocked: false });
-    cell.classList.add('selected');
-    cell.textContent = '✓ 🕐';
   }
 }
 
@@ -565,12 +531,12 @@ async function saveActivityCode() {
   const code = document.getElementById('activityCode').value.trim();
   const name = document.getElementById('activityName').value.trim();
   const description = document.getElementById('activityDescription').value.trim();
-  
+
   if (!code || !name) {
     showToast('活动代码和名称不能为空', 'danger');
     return;
   }
-  
+
   try {
     if (codeId) {
       // 更新
@@ -581,18 +547,22 @@ async function saveActivityCode() {
       showToast('活动代码更新成功', 'success');
     } else {
       // 创建
-      await apiRequest('/activity/codes', {
+      const response = await apiRequest('/activity/codes', {
         method: 'POST',
         body: JSON.stringify({ code, name, description })
       });
+      console.log('创建活动代码响应:', response);
       showToast('活动代码创建成功', 'success');
     }
+
+    const modalEl = document.getElementById('activityCodeModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
     
-    const modal = bootstrap.Modal.getInstance(document.getElementById('activityCodeModal'));
-    modal.hide();
     loadActivityCodes();
   } catch (error) {
-    showToast(error.message.includes('已存在') ? '活动代码已存在' : '操作失败：' + error.message, 'danger');
+    console.error('保存活动代码错误:', error);
+    showToast(error.message || '操作失败', 'danger');
   }
 }
 

@@ -55,26 +55,20 @@ body {
 }
 
 /* 时间申报表格 */
-.availability-cell {
-  text-align: center;
+.time-checkbox {
+  width: 1.2em;
+  height: 1.2em;
   cursor: pointer;
-  padding: 12px 8px;
-  transition: all 0.2s;
 }
 
-.availability-cell:hover {
-  background-color: #e9ecef;
-}
-
-.availability-cell.selected {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.availability-cell.locked {
-  background-color: #f8d7da;
-  color: #721c24;
+.time-checkbox:disabled {
   cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.table td.text-center {
+  vertical-align: middle;
+  padding: 12px 8px;
 }
 
 /* 活动卡片 */
