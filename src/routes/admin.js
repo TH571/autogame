@@ -9,13 +9,23 @@ const { authMiddleware, activityAdminMiddleware, superAdminMiddleware } = requir
 // 获取所有用户（管理员）
 router.get('/users', authMiddleware, activityAdminMiddleware, (req, res) => {
   try {
-    const users = User.findAll();
+    let users;
+    
+    // 超级管理员可以看到所有用户
+    if (req.user.role === 'super_admin') {
+      users = User.findAll();
+    } else {
+      // 活动管理员只能看到自己管理的用户
+      users = User.findByActivityAdminId(req.user.id);
+    }
+    
     const formattedUsers = users.map(u => ({
       id: u.id,
       email: u.email,
       name: u.name,
       role: u.role,
       isSeed: u.is_seed === 1,
+      activityAdminId: u.activity_admin_id,
       createdAt: u.created_at
     }));
     res.json({ users: formattedUsers });

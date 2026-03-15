@@ -90,26 +90,29 @@ function showAuthPage() {
 function showMainApp() {
   document.getElementById('authPage').classList.add('d-none');
   document.getElementById('navbar').style.display = 'flex';
-  
+
   // 更新用户信息
-  document.getElementById('userInfo').textContent = 
-    `${currentUser.name} (${currentUser.isSeed ? '种子选手' : currentUser.role === 'admin' ? '管理员' : '用户'})`;
+  const roleText = currentUser.role === 'super_admin' ? '超级管理员' 
+    : currentUser.role === 'activity_admin' ? '活动管理员'
+    : currentUser.isSeed ? '种子选手' : '用户';
   
-  // 显示管理员链接
-  if (currentUser.role === 'admin') {
+  document.getElementById('userInfo').textContent = `${currentUser.name} (${roleText})`;
+
+  // 显示管理员链接（超级管理员和活动管理员）
+  if (currentUser.role === 'super_admin' || currentUser.role === 'activity_admin') {
     document.querySelectorAll('.admin-only').forEach(el => {
       el.style.display = 'block';
     });
   }
-  
+
   // 默认显示时间申报页面
   showPage('availability');
 }
 
 // 切换页面
 function showPage(pageName) {
-  // 检查管理员页面权限
-  if (pageName === 'admin' && currentUser.role !== 'admin') {
+  // 检查管理员页面权限（超级管理员和活动管理员）
+  if (pageName === 'admin' && currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
     showToast('无权限访问', 'danger');
     return;
   }
@@ -449,7 +452,7 @@ async function loadActivities() {
 
 // 加载管理数据
 async function loadAdminData() {
-  if (currentUser.role !== 'admin') {
+  if (currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
     showToast('无权限访问', 'danger');
     return;
   }
@@ -468,7 +471,7 @@ async function loadAdminData() {
           <small>种子选手</small>
         </div>
         <div class="col-4">
-          <div class="participation-count">${statsData.stats.filter(s => s.role === 'user' && !s.isSeed).length}</div>
+          <div class="participation-count">${statsData.stats.filter(s => s.role === 'user').length}</div>
           <small>普通用户</small>
         </div>
       </div>
@@ -479,7 +482,17 @@ async function loadAdminData() {
 
     // 用户列表
     const usersData = await apiRequest('/admin/users');
-    allUsers = usersData.users;
+    allUsers = usersData.users || [];
+    
+    // 活动管理员只能看到自己管理的用户和自己
+    if (currentUser.role === 'activity_admin') {
+      allUsers = allUsers.filter(u => 
+        u.id === currentUser.id || 
+        u.activity_admin_id === currentUser.id ||
+        u.role === 'super_admin'
+      );
+    }
+    
     renderUserList(allUsers);
   } catch (error) {
     showToast('加载管理数据失败：' + error.message, 'danger');
@@ -795,7 +808,7 @@ async function deleteActivityCode(codeId) {
 // 渲染用户列表
 function renderUserList(users) {
   const tbody = document.getElementById('adminUserList');
-  
+
   if (users.length === 0) {
     tbody.innerHTML = `
       <tr>
@@ -807,7 +820,7 @@ function renderUserList(users) {
     `;
     return;
   }
-  
+
   tbody.innerHTML = users.map(u => `
     <tr>
       <td>${u.id}</td>
@@ -827,7 +840,7 @@ function renderUserList(users) {
           <button class="btn btn-outline-info" onclick="viewUserAvailability(${u.id})" title="查看申报">
             <i class="bi bi-calendar-check"></i>
           </button>
-          ${u.id !== currentUser.id ? `
+          ${u.id !== currentUser.id && currentUser.role === 'super_admin' ? `
             <button class="btn btn-outline-danger" onclick="showDeleteConfirm(${u.id})" title="删除">
               <i class="bi bi-trash"></i>
             </button>
@@ -1238,8 +1251,8 @@ function getRoleText(role) {
 
 function getRoleBadge(role) {
   const map = {
-    'admin': '<span class="badge bg-danger">管理员</span>',
-    'seed': '<span class="badge seed-badge">种子选手</span>',
+    'super_admin': '<span class="badge bg-danger">超级管理员</span>',
+    'activity_admin': '<span class="badge bg-warning text-dark">活动管理员</span>',
     'user': '<span class="badge bg-secondary">普通用户</span>'
   };
   return map[role] || `<span class="badge bg-secondary">${role}</span>`;
