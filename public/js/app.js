@@ -841,57 +841,62 @@ async function viewUserAvailability(userId) {
   try {
     const data = await apiRequest(`/admin/availabilities/${userId}`);
     currentViewUserId = userId;
-    
-    document.getElementById('selectedUserName').textContent = 
+
+    document.getElementById('selectedUserName').textContent =
       `${data.user.name} (${data.user.email}) - 申报详情`;
     document.getElementById('userAvailabilitySection').classList.remove('d-none');
-    
+
     // 加载未来 14 天日期
     const datesData = await apiRequest('/availability/dates/next14');
-    
+
     // 构建已申报时间映射
     const availMap = {};
     data.availabilities.forEach(a => {
       const key = `${a.date}-${a.timeSlot}`;
       availMap[key] = a;
     });
-    
+
     currentUserAvailabilities = [];
     const tbody = document.getElementById('userAvailabilityBody');
     tbody.innerHTML = '';
-    
+
     datesData.dates.forEach(item => {
       const tr = document.createElement('tr');
+
+      const afternoon = item.slots[1];
+      const evening = item.slots[2];
+      const fullDay = item.slots[3];
       
-      const hasAfternoon = availMap[`${item.date}-1`];
-      const hasEvening = availMap[`${item.date}-2`];
-      const hasFullDay = availMap[`${item.date}-3`];
-      
+      // 检查是否已申报（包括全天）
+      const hasAfternoon = availMap[`${item.date}-1`] || availMap[`${item.date}-3`];
+      const hasEvening = availMap[`${item.date}-2`] || availMap[`${item.date}-3`];
+
       tr.innerHTML = `
         <td>${item.date}</td>
         <td>${item.dayOfWeek}</td>
-        <td class="availability-cell ${hasAfternoon ? 'selected' : ''}" 
-            data-date="${item.date}" data-slot="1" onclick="toggleUserAvailability(this)">
-          ${hasAfternoon ? '✓' : '下午'}
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input time-checkbox" 
+                 data-date="${item.date}" data-slot="1" 
+                 ${hasAfternoon ? 'checked' : ''}
+                 onclick="toggleUserCheckbox(this)">
+          <label class="form-check-label">下午</label>
         </td>
-        <td class="availability-cell ${hasEvening ? 'selected' : ''}"
-            data-date="${item.date}" data-slot="2" onclick="toggleUserAvailability(this)">
-          ${hasEvening ? '✓' : '晚上'}
-        </td>
-        <td class="availability-cell ${hasFullDay ? 'selected' : ''}"
-            data-date="${item.date}" data-slot="3" onclick="toggleUserAvailability(this)">
-          ${hasFullDay ? '✓' : '全天'}
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input time-checkbox" 
+                 data-date="${item.date}" data-slot="2" 
+                 ${hasEvening ? 'checked' : ''}
+                 onclick="toggleUserCheckbox(this)">
+          <label class="form-check-label">晚上</label>
         </td>
       `;
-      
+
       tbody.appendChild(tr);
-      
+
       // 添加到当前选择列表
       if (hasAfternoon) currentUserAvailabilities.push({ date: item.date, timeSlot: 1 });
       if (hasEvening) currentUserAvailabilities.push({ date: item.date, timeSlot: 2 });
-      if (hasFullDay) currentUserAvailabilities.push({ date: item.date, timeSlot: 3 });
     });
-    
+
     // 滚动到详情区域
     document.getElementById('userAvailabilitySection').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
@@ -899,47 +904,23 @@ async function viewUserAvailability(userId) {
   }
 }
 
-// 切换用户申报选择
-function toggleUserAvailability(cell) {
-  const date = cell.dataset.date;
-  const slot = parseInt(cell.dataset.slot);
-  
+// 切换用户申报勾选框
+function toggleUserCheckbox(checkbox) {
+  const date = checkbox.dataset.date;
+  const slot = parseInt(checkbox.dataset.slot);
+
   const index = currentUserAvailabilities.findIndex(a => a.date === date && a.timeSlot === slot);
-  
-  if (index >= 0) {
-    // 取消选择
-    currentUserAvailabilities.splice(index, 1);
-    cell.classList.remove('selected');
-    cell.textContent = slot === 1 ? '下午' : slot === 2 ? '晚上' : '全天';
+
+  if (checkbox.checked) {
+    // 勾选
+    if (index < 0) {
+      currentUserAvailabilities.push({ date, timeSlot: slot });
+    }
   } else {
-    // 选择
-    if (slot === 3) {
-      const afternoonCell = document.querySelector(`[data-date="${date}"][data-slot="1"]`);
-      const eveningCell = document.querySelector(`[data-date="${date}"][data-slot="2"]`);
-      
-      currentUserAvailabilities = currentUserAvailabilities.filter(
-        a => !(a.date === date && (a.timeSlot === 1 || a.timeSlot === 2))
-      );
-      
-      afternoonCell.classList.remove('selected');
-      afternoonCell.textContent = '下午';
-      eveningCell.classList.remove('selected');
-      eveningCell.textContent = '晚上';
+    // 取消勾选
+    if (index >= 0) {
+      currentUserAvailabilities.splice(index, 1);
     }
-    
-    if (slot === 1 || slot === 2) {
-      const fullDayIndex = currentUserAvailabilities.findIndex(a => a.date === date && a.timeSlot === 3);
-      if (fullDayIndex >= 0) {
-        currentUserAvailabilities.splice(fullDayIndex, 1);
-        const fullDayCell = document.querySelector(`[data-date="${date}"][data-slot="3"]`);
-        fullDayCell.classList.remove('selected');
-        fullDayCell.textContent = '全天';
-      }
-    }
-    
-    currentUserAvailabilities.push({ date, timeSlot: slot });
-    cell.classList.add('selected');
-    cell.textContent = '✓';
   }
 }
 
