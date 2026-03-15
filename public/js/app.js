@@ -554,12 +554,20 @@ async function loadUserManagement() {
 // 渲染人员管理列表
 function renderUserManagementList(users) {
   const tbody = document.getElementById('userManagementList');
-  
+
   if (users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无用户</td></tr>';
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">
+          <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+          <p class="mb-0 mt-2">暂无用户</p>
+          <small class="text-danger"><i class="bi bi-exclamation-circle"></i> 每个用户都必须有邀请人才能注册</small>
+        </td>
+      </tr>
+    `;
     return;
   }
-  
+
   tbody.innerHTML = users.map(u => `
     <tr>
       <td>${u.id}</td>
@@ -569,7 +577,7 @@ function renderUserManagementList(users) {
       </td>
       <td>${u.email}</td>
       <td>${getRoleBadge(u.role)}</td>
-      <td>${getActivityAdminName(u.activityAdminId)}</td>
+      <td>${getInviterInfo(u)}</td>
       <td><small class="text-muted">${formatDateCN(u.createdAt)}</small></td>
       <td>
         <div class="btn-group btn-group-sm">
@@ -587,11 +595,24 @@ function renderUserManagementList(users) {
   `).join('');
 }
 
-// 获取活动管理员名称
-function getActivityAdminName(adminId) {
-  if (!adminId) return '-';
-  const admin = managementUsers.find(u => u.id === adminId);
-  return admin ? admin.name : '-';
+// 获取邀请人信息
+function getInviterInfo(user) {
+  // 超级管理员和活动管理员（系统创建）
+  if (user.role === 'super_admin' || user.role === 'activity_admin') {
+    return '<span class="badge bg-secondary"><i class="bi bi-gear"></i> 系统创建</span>';
+  }
+  
+  // 普通用户显示邀请人
+  if (user.activityAdminId) {
+    // 在用户列表中查找邀请人
+    const inviter = managementUsers.find(u => u.id === user.activityAdminId);
+    if (inviter) {
+      return `<span class="badge bg-primary"><i class="bi bi-person-check"></i> ${inviter.name}</span>`;
+    }
+    return `<span class="badge bg-primary">ID:${user.activityAdminId}</span>`;
+  }
+  
+  return '<span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> 无邀请人</span>';
 }
 
 // 判断是否可以删除用户
