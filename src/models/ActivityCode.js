@@ -7,21 +7,26 @@ class ActivityCodeModel {
 
   // 创建活动代码
   create(code, name, description, createdBy, rules = {}) {
-    const stmt = this.db.prepare(`
-      INSERT INTO activity_codes (code, name, description, created_by, min_players, max_players, players_per_game, require_seed, seed_required)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    return stmt.run(
-      code, 
-      name, 
-      description, 
-      createdBy,
-      rules.minPlayers || 4,
-      rules.maxPlayers || 4,
-      rules.playersPerGame || 4,
-      rules.requireSeed !== undefined ? (rules.requireSeed ? 1 : 0) : 1,
-      rules.seedRequired !== undefined ? (rules.seedRequired ? 1 : 0) : 1
-    );
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO activity_codes (code, name, description, created_by, min_players, max_players, players_per_game, require_seed, seed_required)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      return stmt.run(
+        code,
+        name,
+        description || null,
+        createdBy,
+        rules.minPlayers || 4,
+        rules.maxPlayers || 4,
+        rules.playersPerGame || 4,
+        rules.requireSeed !== undefined ? (rules.requireSeed ? 1 : 0) : 1,
+        rules.seedRequired !== undefined ? (rules.seedRequired ? 1 : 0) : 1
+      );
+    } catch (error) {
+      console.error('创建活动代码失败:', error.message);
+      throw error;
+    }
   }
 
   // 获取所有活动代码
