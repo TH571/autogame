@@ -108,14 +108,20 @@ function showMainApp() {
 
 // 切换页面
 function showPage(pageName) {
+  // 检查管理员页面权限
+  if (pageName === 'admin' && currentUser.role !== 'admin') {
+    showToast('无权限访问', 'danger');
+    return;
+  }
+
   document.querySelectorAll('.page-content').forEach(page => {
     page.classList.add('d-none');
   });
-  
+
   const page = document.getElementById(`${pageName}Page`);
   if (page) {
     page.classList.remove('d-none');
-    
+
     // 加载对应数据
     switch(pageName) {
       case 'availability':
@@ -208,23 +214,33 @@ function logout() {
 // 加载用户的活动代码
 async function loadMyActivityCodes() {
   try {
-    const data = await apiRequest('/activity/codes/my');
-    myActivityCodes = data.codes || [];
+    // 获取所有活动代码
+    const allCodesData = await apiRequest('/activity/codes');
+    const allCodes = allCodesData.codes || [];
     
+    // 获取当前用户已加入的活动代码
+    const myCodesData = await apiRequest('/activity/codes/my');
+    const myCodeIds = new Set((myCodesData.codes || []).map(c => c.id));
+    
+    // 过滤出用户已加入的活动代码
+    myActivityCodes = allCodes.filter(code => myCodeIds.has(code.id));
+
     const select = document.getElementById('activityCodeSelect');
     select.innerHTML = '<option value="">-- 请选择活动代码 --</option>';
-    
+
     myActivityCodes.forEach(code => {
       const option = document.createElement('option');
       option.value = code.code;
       option.textContent = `${code.code} - ${code.name}`;
       select.appendChild(option);
     });
-    
+
     if (myActivityCodes.length === 0) {
+      select.innerHTML = '<option value="" disabled>-- 暂无可用活动代码 --</option>';
       showToast('您还没有被分配到任何活动代码，请联系管理员', 'warning');
     }
   } catch (error) {
+    console.error('加载活动代码错误:', error);
     showToast('加载活动代码失败：' + error.message, 'danger');
   }
 }
