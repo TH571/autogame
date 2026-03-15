@@ -160,7 +160,7 @@ function initDatabase() {
       min_players INTEGER DEFAULT 4,          -- 最低组局人数
       max_players INTEGER DEFAULT 4,          -- 最高组局人数
       require_seed BOOLEAN DEFAULT 1,         -- 是否要求种子选手参与
-      seed_required BOOLEAN DEFAULT 1         -- 种子选手是否强制参与每场
+      seed_required BOOLEAN DEFAULT 1,        -- 种子选手是否强制参与每场
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `);
