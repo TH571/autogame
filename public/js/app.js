@@ -9,12 +9,6 @@ let userToDelete = null; // 待删除的用户
 let myActivityCodes = []; // 用户的活动代码列表
 let currentCodeId = null; // 当前操作的活动代码 ID
 
-// 初始化
-document.addEventListener('DOMContentLoaded', () => {
-  checkAuth();
-  setupEventListeners();
-});
-
 // 设置事件监听
 function setupEventListeners() {
   // 导航链接
@@ -154,6 +148,19 @@ function showLogin() {
 function showRegister() {
   document.getElementById('loginForm').classList.add('d-none');
   document.getElementById('registerForm').classList.remove('d-none');
+  toggleInviteCodeField();
+}
+
+// 切换邀请码字段提示
+function toggleInviteCodeField() {
+  const role = document.getElementById('registerRole').value;
+  const hint = document.getElementById('inviteCodeHint');
+  
+  if (role === 'activity_admin') {
+    hint.textContent = '请输入超级管理员发出的邀请码';
+  } else {
+    hint.textContent = '请输入活动管理员发出的邀请码';
+  }
 }
 
 // 处理登录
@@ -185,21 +192,30 @@ async function handleLogin(event) {
 // 处理注册
 async function handleRegister(event) {
   event.preventDefault();
-  
-  const name = document.getElementById('registerName').value;
-  const email = document.getElementById('registerEmail').value;
+
+  const name = document.getElementById('registerName').value.trim();
+  const email = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
-  
+  const role = document.getElementById('registerRole').value;
+  const inviteCode = document.getElementById('registerInviteCode').value.trim();
+
+  if (!inviteCode) {
+    const errorEl = document.getElementById('registerError');
+    errorEl.textContent = '邀请码不能为空';
+    errorEl.classList.remove('d-none');
+    return;
+  }
+
   try {
     const data = await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, role, inviteCode })
     });
-    
+
     userToken = data.token;
     currentUser = data.user;
     localStorage.setItem('token', data.token);
-    
+
     showToast('注册成功！', 'success');
     showMainApp();
   } catch (error) {
@@ -1532,3 +1548,92 @@ function formatDateCN(dateStr) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+// ========== 邀请码管理 ==========
+
+let currentInviteCode = null;
+
+// 显示邀请码模态框
+async function showInviteCodeModal() {
+  try {
+    // 获取当前用户的邀请码
+    const userData = await apiRequest('/auth/me');
+    const user = userData.user;
+    
+    if (user.role === 'super_admin' || user.role === 'activity_admin') {
+      currentInviteCode = user.inviteCode;
+      document.getElementById('currentInviteCode').value = currentInviteCode || '暂无邀请码';
+      
+      // 生成二维码
+      document.getElementById('qrcodeContainer').innerHTML = '';
+      if (currentInviteCode) {
+        const registerUrl = `${window.location.origin}?inviteCode=${currentInviteCode}&role=${user.role}`;
+        new QRCode(document.getElementById('qrcodeContainer'), {
+          text: registerUrl,
+          width: 200,
+          height: 200
+        });
+      }
+      
+      const modal = new bootstrap.Modal(document.getElementById('inviteCodeModal'));
+      modal.show();
+    }
+  } catch (error) {
+    showToast('获取邀请码失败：' + error.message, 'danger');
+  }
+}
+
+// 复制邀请码
+function copyInviteCode() {
+  const codeInput = document.getElementById('currentInviteCode');
+  codeInput.select();
+  document.execCommand('copy');
+  showToast('邀请码已复制到剪贴板', 'success');
+}
+
+// 生成新邀请码
+async function generateNewInviteCode() {
+  try {
+    const response = await apiRequest('/auth/invite-code', {
+      method: 'POST'
+    });
+    
+    currentInviteCode = response.inviteCode;
+    document.getElementById('currentInviteCode').value = currentInviteCode;
+    
+    // 重新生成二维码
+    document.getElementById('qrcodeContainer').innerHTML = '';
+    const registerUrl = `${window.location.origin}?inviteCode=${currentInviteCode}&role=activity_admin`;
+    new QRCode(document.getElementById('qrcodeContainer'), {
+      text: registerUrl,
+      width: 200,
+      height: 200
+    });
+    
+    showToast('新邀请码已生成', 'success');
+  } catch (error) {
+    showToast('生成邀请码失败：' + error.message, 'danger');
+  }
+}
+
+// 检查 URL 参数自动填充邀请码
+function checkUrlForInviteCode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteCode = urlParams.get('inviteCode');
+  const role = urlParams.get('role');
+  
+  if (inviteCode) {
+    document.getElementById('registerInviteCode').value = inviteCode;
+    if (role) {
+      document.getElementById('registerRole').value = role;
+      toggleInviteCodeField();
+    }
+  }
+}
+
+// 初始化时检查 URL 参数
+const originalDOMContentLoaded = document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  setupEventListeners();
+  checkUrlForInviteCode();
+});

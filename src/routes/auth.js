@@ -16,6 +16,10 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '邮箱、密码和姓名不能为空' });
     }
 
+    if (!inviteCode) {
+      return res.status(400).json({ error: '邀请码不能为空' });
+    }
+
     // 检查邮箱是否已存在
     const existingUser = User.findByEmail(email);
     if (existingUser) {
@@ -34,18 +38,25 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '无效的角色类型' });
     }
 
-    let activityAdminId = null;
+    // 验证邀请码
+    const inviteData = User.verifyInviteCode(inviteCode);
+    if (!inviteData) {
+      return res.status(400).json({ error: '无效的邀请码' });
+    }
+    
+    // 检查邀请码类型是否匹配
+    const inviter = User.findById(inviteData.admin_id);
+    if (userRole === 'activity_admin' && inviter.role !== 'super_admin') {
+      return res.status(400).json({ error: '活动管理员注册需要超级管理员邀请码' });
+    }
+    if (userRole === 'user' && inviter.role !== 'activity_admin' && inviter.role !== 'super_admin') {
+      return res.status(400).json({ error: '普通用户注册需要活动管理员邀请码' });
+    }
 
-    // 如果是普通用户，需要验证邀请码
-    if (userRole === 'user') {
-      if (!inviteCode) {
-        return res.status(400).json({ error: '普通用户注册需要活动管理员邀请码' });
-      }
-      
-      const inviteData = User.verifyInviteCode(inviteCode);
-      if (!inviteData) {
-        return res.status(400).json({ error: '无效的邀请码' });
-      }
+    let activityAdminId = inviteData.admin_id;
+    
+    // 活动管理员注册时，超级管理员作为上级
+    if (userRole === 'activity_admin') {
       activityAdminId = inviteData.admin_id;
     }
 
@@ -151,9 +162,9 @@ router.get('/me', authMiddleware, (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    // 获取邀请码（如果是活动管理员）
+    // 获取邀请码（如果是活动管理员或超级管理员）
     let inviteCode = null;
-    if (user.role === 'activity_admin') {
+    if (user.role === 'activity_admin' || user.role === 'super_admin') {
       const inviteData = User.getInviteCode(user.id);
       inviteCode = inviteData ? inviteData.code : null;
     }
@@ -173,6 +184,25 @@ router.get('/me', authMiddleware, (req, res) => {
   } catch (error) {
     console.error('获取用户信息错误:', error);
     res.status(500).json({ error: '获取用户信息失败' });
+  }
+});
+
+// 生成新邀请码
+router.post('/invite-code', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
+      return res.status(403).json({ error: '无权限生成邀请码' });
+    }
+
+    const newInviteCode = User.generateInviteCode(req.user.id);
+    
+    res.json({
+      message: '邀请码生成成功',
+      inviteCode: newInviteCode
+    });
+  } catch (error) {
+    console.error('生成邀请码错误:', error);
+    res.status(500).json({ error: '生成邀请码失败' });
   }
 });
 
