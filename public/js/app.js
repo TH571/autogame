@@ -292,14 +292,15 @@ async function loadMyActivityCodes(selectedCode = null) {
 async function loadAvailabilityDates() {
   try {
     const activityCode = document.getElementById('activityCodeSelect').value;
-    
+
     if (!activityCode) {
       document.getElementById('availabilityBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">请先选择活动代码</td></tr>';
       selectedAvailabilities = [];
       return;
     }
 
-    const datesData = await apiRequest('/availability/dates/next14');
+    // 传递活动代码参数到 API
+    const datesData = await apiRequest(`/availability/dates/next14?activityCode=${encodeURIComponent(activityCode)}`);
 
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
@@ -345,6 +346,7 @@ async function loadAvailabilityDates() {
       if (hasEvening) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked || fullDay.isLocked });
     });
   } catch (error) {
+    console.error('加载日期列表错误:', error);
     showToast('加载日期失败：' + error.message, 'danger');
   }
 }

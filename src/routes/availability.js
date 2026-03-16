@@ -210,11 +210,18 @@ router.delete('/:date/:timeSlot', authMiddleware, (req, res) => {
 // 获取未来 14 天的日期列表（带锁定状态）
 router.get('/dates/next14', authMiddleware, async (req, res) => {
   try {
+    const activityCode = req.query.activityCode;
     const dates = [];
     const today = new Date();
+
+    // 获取用户已有的申报（根据活动代码过滤）
+    let userAvailabilities;
+    if (activityCode) {
+      userAvailabilities = Availability.getByUserAndCode(req.user.id, activityCode);
+    } else {
+      userAvailabilities = Availability.getByUser(req.user.id);
+    }
     
-    // 获取用户已有的申报
-    const userAvailabilities = Availability.getByUser(req.user.id);
     const availMap = {};
     userAvailabilities.forEach(a => {
       const key = `${a.date}-${a.time_slot}`;
@@ -237,7 +244,7 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
       [1, 2, 3].forEach(slot => {
         const key = `${dateStr}-${slot}`;
         const existing = availMap[key];
-        
+
         if (existing) {
           const modifyStatus = Availability.canModify(req.user.id, dateStr, slot);
           dayStatus.slots[slot] = {
