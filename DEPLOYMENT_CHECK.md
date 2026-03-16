@@ -1,5 +1,21 @@
 # Vercel 部署检查清单
 
+## 重要：设置环境变量
+
+部署后，必须在 Vercel 中设置以下环境变量：
+
+1. 访问：https://vercel.com/th571s-projects/autogame/settings/environment-variables
+2. 添加以下变量：
+
+| 变量名 | 值 | 环境 |
+|--------|-----|------|
+| `ADMIN_EMAIL` | `admin@autogame.com` | Production |
+| `ADMIN_PASSWORD` | `admin123456` | Production |
+| `JWT_SECRET` | `autogame-secret-key-2024-change-in-production` | Production |
+
+3. 点击 **Save** 保存
+4. **重新部署** 使环境变量生效
+
 ## 部署状态检查
 
 ### 1. 检查 Git 连接

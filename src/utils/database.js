@@ -367,24 +367,35 @@ function initSqlite() {
 
 // 创建默认用户（Postgres）
 async function createDefaultUsersPostgres(sql, bcrypt) {
+  console.log('[Postgres Init] ADMIN_EMAIL:', process.env.ADMIN_EMAIL || 'admin@autogame.com');
+  console.log('[Postgres Init] ADMIN_PASSWORD:', process.env.ADMIN_PASSWORD ? '已设置' : '未设置');
+  
   // 检查超级管理员
   const superAdminCheck = await sql`SELECT id FROM users WHERE role = 'super_admin' LIMIT 1`;
   if (superAdminCheck.rows.length === 0) {
-    const hashedPassword = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123456', 10);
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@autogame.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
+    const hashedPassword = bcrypt.hashSync(adminPassword, 10);
     const inviteCode = 'SUPER' + Date.now().toString(36).toUpperCase();
 
-    await sql`
-      INSERT INTO users (email, password, name, role, invite_code)
-      VALUES (${process.env.ADMIN_EMAIL || 'admin@autogame.com'}, ${hashedPassword}, '铁', 'super_admin', ${inviteCode})
-    `;
+    try {
+      await sql`
+        INSERT INTO users (email, password, name, role, invite_code)
+        VALUES (${adminEmail}, ${hashedPassword}, '铁', 'super_admin', ${inviteCode})
+      `;
 
-    await sql`
-      INSERT INTO admin_invite_codes (admin_id, code, is_used)
-      VALUES (currval('users_id_seq'), ${inviteCode}, false)
-    `;
+      await sql`
+        INSERT INTO admin_invite_codes (admin_id, code, is_used)
+        VALUES (currval('users_id_seq'), ${inviteCode}, false)
+      `;
 
-    console.log('✓ 超级管理员账户已创建 (admin@autogame.com / admin123456)');
-    console.log(`✓ 超级管理员邀请码：${inviteCode}`);
+      console.log('✓ 超级管理员账户已创建 (admin@autogame.com / admin123456)');
+      console.log(`✓ 超级管理员邀请码：${inviteCode}`);
+    } catch (error) {
+      console.error('[Postgres Init] 创建超级管理员失败:', error.message);
+    }
+  } else {
+    console.log('[Postgres Init] 超级管理员已存在');
   }
 
   // 检查活动管理员
@@ -393,18 +404,24 @@ async function createDefaultUsersPostgres(sql, bcrypt) {
     const hashedPassword = bcrypt.hashSync('seed123456', 10);
     const inviteCode = 'ADMIN' + Date.now().toString(36).toUpperCase();
 
-    await sql`
-      INSERT INTO users (email, password, name, role, is_seed, invite_code)
-      VALUES ('seed@autogame.com', ${hashedPassword}, '蚊子', 'activity_admin', true, ${inviteCode})
-    `;
+    try {
+      await sql`
+        INSERT INTO users (email, password, name, role, is_seed, invite_code)
+        VALUES ('seed@autogame.com', ${hashedPassword}, '蚊子', 'activity_admin', true, ${inviteCode})
+      `;
 
-    await sql`
-      INSERT INTO admin_invite_codes (admin_id, code, is_used)
-      VALUES (currval('users_id_seq'), ${inviteCode}, false)
-    `;
+      await sql`
+        INSERT INTO admin_invite_codes (admin_id, code, is_used)
+        VALUES (currval('users_id_seq'), ${inviteCode}, false)
+      `;
 
-    console.log('✓ 活动管理员账户已创建 (seed@autogame.com / seed123456)');
-    console.log(`✓ 活动管理员邀请码：${inviteCode}`);
+      console.log('✓ 活动管理员账户已创建 (seed@autogame.com / seed123456)');
+      console.log(`✓ 活动管理员邀请码：${inviteCode}`);
+    } catch (error) {
+      console.error('[Postgres Init] 创建活动管理员失败:', error.message);
+    }
+  } else {
+    console.log('[Postgres Init] 活动管理员已存在');
   }
 }
 
