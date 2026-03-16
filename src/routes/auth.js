@@ -143,18 +143,24 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('[Login] 尝试登录:', email);
+
     if (!email || !password) {
       return res.status(400).json({ error: '邮箱和密码不能为空' });
     }
 
     // 查找用户（异步）
     const user = await User.findByEmail(email);
+    console.log('[Login] 用户查询结果:', user ? '找到用户' : '用户不存在');
+    
     if (!user) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
 
     // 验证密码
     const isValidPassword = bcrypt.compareSync(password, user.password);
+    console.log('[Login] 密码验证:', isValidPassword ? '成功' : '失败');
+    
     if (!isValidPassword) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
@@ -171,6 +177,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
+
+    console.log('[Login] 登录成功:', email);
 
     res.json({
       message: '登录成功',
@@ -287,7 +295,7 @@ router.post('/avatar', authMiddleware, upload.single('avatar'), async (req, res)
     // 保存头像 URL 到数据库
     const avatarUrl = `/avatars/${req.file.filename}`;
     User.update(req.user.id, { avatar: avatarUrl });
-    
+
     res.json({
       message: '头像上传成功',
       avatarUrl
@@ -295,6 +303,35 @@ router.post('/avatar', authMiddleware, upload.single('avatar'), async (req, res)
   } catch (error) {
     console.error('上传头像错误:', error);
     res.status(500).json({ error: error.message || '上传失败' });
+  }
+});
+
+// 诊断 API - 检查数据库状态
+router.get('/diagnostic', async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const { usePostgres } = require('../utils/database');
+    
+    const users = await User.findAll();
+    const adminUser = users.find(u => u.role === 'super_admin');
+    const activityAdmin = users.find(u => u.role === 'activity_admin');
+    
+    res.json({
+      database: usePostgres ? 'PostgreSQL' : 'SQLite',
+      totalUsers: users.length,
+      hasSuperAdmin: !!adminUser,
+      hasActivityAdmin: !!activityAdmin,
+      adminEmail: adminUser?.email,
+      env: {
+        ADMIN_EMAIL: process.env.ADMIN_EMAIL || '未设置',
+        ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ? '已设置' : '未设置',
+        JWT_SECRET: process.env.JWT_SECRET ? '已设置' : '未设置',
+        POSTGRES_URL: process.env.POSTGRES_URL ? '已设置' : '未设置'
+      }
+    });
+  } catch (error) {
+    console.error('诊断错误:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
