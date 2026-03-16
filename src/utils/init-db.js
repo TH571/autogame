@@ -5,8 +5,8 @@ const fs = require('fs');
 
 // Vercel Serverless 环境使用 /tmp 目录
 const isVercel = process.env.VERCEL === '1';
-const dbPath = isVercel 
-  ? '/tmp/autogame.db' 
+const dbPath = isVercel
+  ? '/tmp/autogame.db'
   : (process.env.DATABASE_PATH || './data/autogame.db');
 
 // 确保数据目录存在（本地开发）
@@ -19,8 +19,9 @@ if (!isVercel) {
 
 const db = new Database(dbPath);
 
-// 启用外键约束
+// 启用外键约束和 UTF-8 编码
 db.pragma('foreign_keys = ON');
+db.pragma('encoding = "UTF-8"');
 
 // 创建数据库表
 function initDatabase() {

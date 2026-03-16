@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
 const { authMiddleware } = require('../middleware/auth');
-require('dotenv').config();
 
 const router = express.Router();
 

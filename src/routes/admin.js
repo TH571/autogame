@@ -38,7 +38,7 @@ router.get('/users', authMiddleware, activityAdminMiddleware, (req, res) => {
 // 创建用户（管理员）
 router.post('/users', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const { email, password, name, role, isSeed } = req.body;
+    const { email, password, name, role, isSeed, activityAdminId } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: '邮箱、密码和姓名不能为空' });
@@ -52,9 +52,10 @@ router.post('/users', authMiddleware, activityAdminMiddleware, async (req, res) 
 
     const hashedPassword = bcrypt.hashSync(password, 10);
     const userRole = role || 'user';
-    
-    const result = User.create(email, hashedPassword, name, userRole);
-    
+
+    // 传递 activityAdminId 参数
+    const result = User.create(email, hashedPassword, name, userRole, activityAdminId || null);
+
     // 如果是种子选手，更新 is_seed
     if (isSeed) {
       User.update(result.lastInsertRowid, { is_seed: 1 });
