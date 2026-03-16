@@ -22,6 +22,16 @@ function setupEventListeners() {
 
   // 退出登录
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+  // 活动代码选择框变化时，自动加载对应的申报数据
+  document.getElementById('activityCodeSelect')?.addEventListener('change', (e) => {
+    if (e.target.value) {
+      loadAvailabilityDates();
+    } else {
+      document.getElementById('availabilityBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">请先选择活动代码</td></tr>';
+      selectedAvailabilities = [];
+    }
+  });
 }
 
 // API 请求封装
@@ -128,7 +138,8 @@ function showPage(pageName) {
     switch(pageName) {
       case 'availability':
         loadMyActivityCodes();
-        loadAvailabilityDates();
+        // loadAvailabilityDates() 会在活动代码加载后自动调用（当选择第一个活动代码时）
+        // 或者在用户手动选择活动代码时通过 change 事件触发
         break;
       case 'activities':
         loadActivities();
@@ -239,13 +250,14 @@ function logout() {
 }
 
 // 加载用户的活动代码
-async function loadMyActivityCodes() {
+async function loadMyActivityCodes(selectedCode = null) {
   try {
     // 获取当前用户已加入的活动代码
     const myCodesData = await apiRequest('/activity/codes/my');
     myActivityCodes = myCodesData.codes || [];
 
     const select = document.getElementById('activityCodeSelect');
+    const oldValue = select.value;
     select.innerHTML = '<option value="">-- 请选择活动代码 --</option>';
 
     myActivityCodes.forEach(code => {
@@ -258,6 +270,17 @@ async function loadMyActivityCodes() {
     if (myActivityCodes.length === 0) {
       select.innerHTML = '<option value="" disabled>-- 暂无可用活动代码 --</option>';
       showToast('您还没有被分配到任何活动代码，请联系管理员', 'warning');
+    } else {
+      // 如果有之前选中的值，恢复它；否则选择第一个
+      if (selectedCode) {
+        select.value = selectedCode;
+      } else if (oldValue) {
+        select.value = oldValue;
+      } else if (myActivityCodes.length > 0) {
+        select.value = myActivityCodes[0].code;
+        // 自动加载第一个活动代码的申报数据
+        setTimeout(() => loadAvailabilityDates(), 100);
+      }
     }
   } catch (error) {
     console.error('加载活动代码错误:', error);
@@ -265,50 +288,58 @@ async function loadMyActivityCodes() {
   }
 }
 
-// 加载日期列表
+// 加载日期列表（根据选中的活动代码）
 async function loadAvailabilityDates() {
   try {
-    const datesData = await apiRequest('/availability/dates/next14');
+    const activityCode = document.getElementById('activityCodeSelect').value;
     
+    if (!activityCode) {
+      document.getElementById('availabilityBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">请先选择活动代码</td></tr>';
+      selectedAvailabilities = [];
+      return;
+    }
+
+    const datesData = await apiRequest('/availability/dates/next14');
+
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
     selectedAvailabilities = [];
-    
+
     datesData.dates.forEach(item => {
       const tr = document.createElement('tr');
-      
+
       const afternoon = item.slots[1];
       const evening = item.slots[2];
-      
+
       // 检查是否有全天选项（下午连晚上）
       const fullDay = item.slots[3];
       const hasAfternoon = afternoon.exists || fullDay.exists;
       const hasEvening = evening.exists || fullDay.exists;
-      
+
       tr.innerHTML = `
         <td>${item.date}</td>
         <td>${item.dayOfWeek}</td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox" 
-                 data-date="${item.date}" data-slot="1" 
-                 ${hasAfternoon ? 'checked' : ''} 
+          <input type="checkbox" class="form-check-input time-checkbox"
+                 data-date="${item.date}" data-slot="1"
+                 ${hasAfternoon ? 'checked' : ''}
                  ${afternoon.isLocked || fullDay.isLocked ? 'disabled' : ''}
                  onclick="toggleTimeCheckbox(this)">
           <label class="form-check-label">下午</label>
         </td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox" 
-                 data-date="${item.date}" data-slot="2" 
-                 ${hasEvening ? 'checked' : ''} 
+          <input type="checkbox" class="form-check-input time-checkbox"
+                 data-date="${item.date}" data-slot="2"
+                 ${hasEvening ? 'checked' : ''}
                  ${evening.isLocked || fullDay.isLocked ? 'disabled' : ''}
                  onclick="toggleTimeCheckbox(this)">
           <label class="form-check-label">晚上</label>
         </td>
         <td>${getStatusBadgeForDay(item)}</td>
       `;
-      
+
       tbody.appendChild(tr);
-      
+
       // 添加到已选择列表
       if (hasAfternoon) selectedAvailabilities.push({ date: item.date, timeSlot: 1, isLocked: afternoon.isLocked || fullDay.isLocked });
       if (hasEvening) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked || fullDay.isLocked });
@@ -362,33 +393,33 @@ function toggleTimeCheckbox(checkbox) {
 // 提交申报
 async function submitAvailability() {
   const activityCode = document.getElementById('activityCodeSelect').value;
-  
+
   if (!activityCode) {
     showToast('请选择活动代码', 'warning');
     return;
   }
-  
+
   if (selectedAvailabilities.length === 0) {
     showToast('请选择至少一个时间段', 'warning');
     return;
   }
-  
+
   try {
     const data = await apiRequest('/availability/batch', {
       method: 'POST',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         availabilities: selectedAvailabilities,
-        activityCode 
+        activityCode
       })
     });
-    
+
     let msg = data.message || '申报成功';
     if (data.regretPeriodCount) {
       msg += ` - ${data.regretPeriodCount}条在 24 小时后悔期内`;
     }
     showToast(msg, 'success');
-    
-    loadMyActivityCodes();
+
+    // 保持当前选中的活动代码，重新加载申报数据
     loadAvailabilityDates();
   } catch (error) {
     showToast('提交失败：' + error.message, 'danger');
