@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "init-db": "node src/utils/init-db.js"
+    "init-db": "node src/utils/init-db.js",
+    "build": "echo 'Build complete'"
   },
   "keywords": [
     "activity",
@@ -29,5 +30,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
