@@ -30,8 +30,5 @@
     "JWT_EXPIRES_IN": "7d",
     "ADMIN_EMAIL": "admin@autogame.com",
     "ADMIN_PASSWORD": "admin123456"
-  },
-  "postgres": {
-    "database": "autogame"
   }
 }
