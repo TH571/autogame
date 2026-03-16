@@ -1,196 +1,173 @@
-const { getDb } = require('../utils/init-db');
+const DatabaseAdapter = require('../utils/db-adapter');
+const db = new DatabaseAdapter();
 
 class ActivityModel {
-  constructor() {
-    this.db = getDb();
-  }
-
   // 创建活动
-  create(date, timeSlot, status = 'pending') {
-    const stmt = this.db.prepare(`
+  async create(date, timeSlot, status = 'pending') {
+    return await db.run(`
       INSERT OR IGNORE INTO activities (date, time_slot, status)
       VALUES (?, ?, ?)
-    `);
-    return stmt.run(date, timeSlot, status);
+    `, [date, timeSlot, status]);
   }
 
   // 获取活动
-  getById(id) {
-    const stmt = this.db.prepare('SELECT * FROM activities WHERE id = ?');
-    return stmt.get(id);
+  async getById(id) {
+    return await db.get('SELECT * FROM activities WHERE id = ?', [id]);
   }
 
   // 获取所有活动
-  getAll() {
-    const stmt = this.db.prepare(`
-      SELECT * FROM activities 
+  async getAll() {
+    return await db.all(`
+      SELECT * FROM activities
       ORDER BY date, time_slot
     `);
-    return stmt.all();
   }
 
   // 获取未来活动
-  getUpcoming() {
-    const stmt = this.db.prepare(`
-      SELECT * FROM activities 
+  async getUpcoming() {
+    return await db.all(`
+      SELECT * FROM activities
       WHERE date >= date('now')
       ORDER BY date, time_slot
     `);
-    return stmt.all();
   }
 
   // 更新活动状态
-  updateStatus(id, status) {
-    const stmt = this.db.prepare(`
-      UPDATE activities 
-      SET status = ?, updated_at = CURRENT_TIMESTAMP 
+  async updateStatus(id, status) {
+    return await db.run(`
+      UPDATE activities
+      SET status = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
-    return stmt.run(status, id);
+    `, [status, id]);
   }
 
   // 删除活动
-  delete(id) {
-    const stmt = this.db.prepare('DELETE FROM activities WHERE id = ?');
-    return stmt.run(id);
+  async delete(id) {
+    return await db.run('DELETE FROM activities WHERE id = ?', [id]);
   }
 
   // 添加活动成员
-  addMember(activityId, userId) {
-    const stmt = this.db.prepare(`
+  async addMember(activityId, userId) {
+    return await db.run(`
       INSERT OR IGNORE INTO activity_members (activity_id, user_id)
       VALUES (?, ?)
-    `);
-    return stmt.run(activityId, userId);
+    `, [activityId, userId]);
   }
 
   // 批量添加成员
-  addMembersBatch(activityId, userIds) {
-    const stmt = this.db.prepare(`
-      INSERT OR IGNORE INTO activity_members (activity_id, user_id)
-      VALUES (?, ?)
-    `);
-    
-    const insertMany = this.db.transaction((activityId, userIds) => {
+  async addMembersBatch(activityId, userIds) {
+    const insertMany = db.transaction((activityId, userIds) => {
       for (const userId of userIds) {
-        stmt.run(activityId, userId);
+        db.run(`
+          INSERT OR IGNORE INTO activity_members (activity_id, user_id)
+          VALUES (?, ?)
+        `, [activityId, userId]);
       }
     });
-    
-    return insertMany(activityId, userIds);
+    return await insertMany(activityId, userIds);
   }
 
   // 获取活动成员
-  getMembers(activityId) {
-    const stmt = this.db.prepare(`
+  async getMembers(activityId) {
+    return await db.all(`
       SELECT u.id, u.email, u.name, u.role, u.is_seed, am.notified, am.notified_at
       FROM activity_members am
       JOIN users u ON am.user_id = u.id
       WHERE am.activity_id = ?
-    `);
-    return stmt.all(activityId);
+    `, [activityId]);
   }
 
   // 获取成员数量
-  getMemberCount(activityId) {
-    const stmt = this.db.prepare(`
+  async getMemberCount(activityId) {
+    const result = await db.get(`
       SELECT COUNT(*) as count FROM activity_members WHERE activity_id = ?
-    `);
-    return stmt.get(activityId).count;
+    `, [activityId]);
+    return result ? result.count : 0;
   }
 
   // 移除活动成员
-  removeMember(activityId, userId) {
-    const stmt = this.db.prepare(`
-      DELETE FROM activity_members 
+  async removeMember(activityId, userId) {
+    return await db.run(`
+      DELETE FROM activity_members
       WHERE activity_id = ? AND user_id = ?
-    `);
-    return stmt.run(activityId, userId);
+    `, [activityId, userId]);
   }
 
   // 标记已通知
-  markNotified(activityId, userIds) {
-    const stmt = this.db.prepare(`
-      UPDATE activity_members 
-      SET notified = 1, notified_at = CURRENT_TIMESTAMP 
-      WHERE activity_id = ? AND user_id = ?
-    `);
-    
-    const updateMany = this.db.transaction((activityId, userIds) => {
+  async markNotified(activityId, userIds) {
+    const updateMany = db.transaction((activityId, userIds) => {
       for (const userId of userIds) {
-        stmt.run(activityId, userId);
+        db.run(`
+          UPDATE activity_members
+          SET notified = 1, notified_at = CURRENT_TIMESTAMP
+          WHERE activity_id = ? AND user_id = ?
+        `, [activityId, userId]);
       }
     });
-    
-    return updateMany(activityId, userIds);
+    return await updateMany(activityId, userIds);
   }
 
   // 获取用户的活动参与历史
-  getUserParticipationHistory(userId) {
-    const stmt = this.db.prepare(`
+  async getUserParticipationHistory(userId) {
+    return await db.all(`
       SELECT a.id, a.date, a.time_slot, a.status, ph.created_at
       FROM participation_history ph
       JOIN activities a ON ph.activity_id = a.id
       WHERE ph.user_id = ?
       ORDER BY a.date DESC, a.time_slot DESC
-    `);
-    return stmt.all(userId);
+    `, [userId]);
   }
 
   // 获取用户在某时间段是否已参与
-  hasParticipated(userId, date, timeSlot) {
-    const stmt = this.db.prepare(`
-      SELECT COUNT(*) as count FROM participation_history 
+  async hasParticipated(userId, date, timeSlot) {
+    const result = await db.get(`
+      SELECT COUNT(*) as count FROM participation_history
       WHERE user_id = ? AND date = ? AND time_slot = ?
-    `);
-    return stmt.get(userId, date, timeSlot).count > 0;
+    `, [userId, date, timeSlot]);
+    return result ? result.count > 0 : false;
   }
 
   // 添加参与记录
-  addParticipationRecord(userId, activityId, date, timeSlot) {
-    const stmt = this.db.prepare(`
+  async addParticipationRecord(userId, activityId, date, timeSlot) {
+    return await db.run(`
       INSERT OR IGNORE INTO participation_history (user_id, activity_id, date, time_slot)
       VALUES (?, ?, ?, ?)
-    `);
-    return stmt.run(userId, activityId, date, timeSlot);
+    `, [userId, activityId, date, timeSlot]);
   }
 
   // 获取用户的参与次数
-  getUserParticipationCount(userId) {
-    const stmt = this.db.prepare(`
+  async getUserParticipationCount(userId) {
+    const result = await db.get(`
       SELECT COUNT(*) as count FROM participation_history WHERE user_id = ?
-    `);
-    return stmt.get(userId).count;
+    `, [userId]);
+    return result ? result.count : 0;
   }
 
   // 获取用户最近参与日期（用于避免连续参与）
-  getUserLastParticipationDate(userId) {
-    const stmt = this.db.prepare(`
+  async getUserLastParticipationDate(userId) {
+    const result = await db.get(`
       SELECT MAX(date) as last_date FROM participation_history WHERE user_id = ?
-    `);
-    const result = stmt.get(userId);
-    return result.last_date;
+    `, [userId]);
+    return result ? result.last_date : null;
   }
 
   // 获取某时间段的活动（含成员信息）
-  getActivityWithMembers(date, timeSlot) {
-    const stmt = this.db.prepare(`
-      SELECT a.*, 
+  async getActivityWithMembers(date, timeSlot) {
+    return await db.get(`
+      SELECT a.*,
         (SELECT COUNT(*) FROM activity_members WHERE activity_id = a.id) as member_count
       FROM activities a
       WHERE a.date = ? AND a.time_slot = ?
-    `);
-    return stmt.get(date, timeSlot);
+    `, [date, timeSlot]);
   }
 
   // 获取 pending 状态的活动
-  getPendingActivities() {
-    const stmt = this.db.prepare(`
-      SELECT * FROM activities 
+  async getPendingActivities() {
+    return await db.all(`
+      SELECT * FROM activities
       WHERE status = 'pending'
       ORDER BY date, time_slot
     `);
-    return stmt.all();
   }
 }
 

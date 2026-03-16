@@ -28,8 +28,10 @@
     "NODE_ENV": "production",
     "JWT_SECRET": "autogame-secret-key-2024",
     "JWT_EXPIRES_IN": "7d",
-    "DATABASE_PATH": "/tmp/autogame.db",
     "ADMIN_EMAIL": "admin@autogame.com",
     "ADMIN_PASSWORD": "admin123456"
+  },
+  "postgres": {
+    "database": "autogame"
   }
 }

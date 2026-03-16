@@ -54,9 +54,9 @@ app.use((err, req, res, next) => {
 // 启动服务器
 async function startServer() {
   try {
-    // 初始化数据库
-    initDatabase();
-    
+    // 初始化数据库（异步）
+    await initDatabase();
+
     // Vercel Serverless 环境不需要启动服务器
     if (!process.env.VERCEL) {
       app.listen(PORT, () => {
