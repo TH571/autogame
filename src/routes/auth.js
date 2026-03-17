@@ -144,6 +144,8 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     console.log('[Login] 尝试登录:', email);
+    console.log('[Login] 环境:', process.env.VERCEL ? 'Vercel' : '本地');
+    console.log('[Login] 数据库模式:', process.env.POSTGRES_URL ? 'PostgreSQL' : 'SQLite');
 
     if (!email || !password) {
       return res.status(400).json({ error: '邮箱和密码不能为空' });
@@ -152,7 +154,7 @@ router.post('/login', async (req, res) => {
     // 查找用户（异步）
     const user = await User.findByEmail(email);
     console.log('[Login] 用户查询结果:', user ? '找到用户' : '用户不存在');
-    
+
     if (!user) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
@@ -160,7 +162,7 @@ router.post('/login', async (req, res) => {
     // 验证密码
     const isValidPassword = bcrypt.compareSync(password, user.password);
     console.log('[Login] 密码验证:', isValidPassword ? '成功' : '失败');
-    
+
     if (!isValidPassword) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
@@ -193,7 +195,8 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('登录错误:', error);
+    console.error('[Login] 登录错误:', error);
+    console.error('[Login] 错误堆栈:', error.stack);
     res.status(500).json({ error: '登录失败，请稍后重试' });
   }
 });
