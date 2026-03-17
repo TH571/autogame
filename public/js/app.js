@@ -72,25 +72,30 @@ async function checkAuth() {
   try {
     const data = await apiRequest('/auth/me');
     currentUser = data.user;
+    localStorage.setItem('user', JSON.stringify(data.user));
     showMainApp();
   } catch (error) {
     // 只在明确是 401 错误（token 过期或无效）时才清除 token
     if (error.message && error.message.includes('未授权')) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       userToken = null;
       currentUser = null;
       showAuthPage();
     } else {
-      // 其他错误（如网络问题）保留 token，显示主应用
+      // 其他错误（如网络问题）保留 token，尝试从 localStorage 恢复用户信息
       console.log('检查登录状态失败，但保留 token:', error.message);
-      // 尝试从 localStorage 恢复用户信息
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
         showMainApp();
       } else {
-        // 如果没有保存的用户信息，显示主应用但允许用户重新登录
-        showMainApp();
+        // 如果没有保存的用户信息，清除 token 并显示登录页面
+        console.log('无保存的用户信息，请重新登录');
+        localStorage.removeItem('token');
+        userToken = null;
+        currentUser = null;
+        showAuthPage();
       }
     }
   }
@@ -110,22 +115,24 @@ function showMainApp() {
   document.getElementById('authPage').classList.add('d-none');
   document.getElementById('navbar').style.display = 'flex';
 
-  // 更新用户信息
-  updateUserInfo();
+  // 更新用户信息（如果有用户信息）
+  if (currentUser) {
+    updateUserInfo();
 
-  // 根据角色显示/隐藏管理功能
-  const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
-  
-  // 显示管理员链接（只有管理员和活动管理员）
-  if (isAdmin) {
-    document.querySelectorAll('.admin-only').forEach(el => {
-      el.style.display = 'block';
-    });
-  } else {
-    // 普通用户隐藏管理功能
-    document.querySelectorAll('.admin-only').forEach(el => {
-      el.style.display = 'none';
-    });
+    // 根据角色显示/隐藏管理功能
+    const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
+
+    // 显示管理员链接（只有管理员和活动管理员）
+    if (isAdmin) {
+      document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = 'block';
+      });
+    } else {
+      // 普通用户隐藏管理功能
+      document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = 'none';
+      });
+    }
   }
 
   // 默认显示时间申报页面
