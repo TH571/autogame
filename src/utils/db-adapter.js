@@ -99,15 +99,24 @@ class DatabaseAdapter {
       }
       // 将 ? 占位符转换为 $1, $2, ...
       let paramIndex = 1;
-      const formattedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+      let formattedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+
+      // PostgreSQL 语法转换
+      // INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+      formattedSql = formattedSql.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT');
       
       // 对于 INSERT，添加 RETURNING id 来获取插入的 ID
       let finalSql = formattedSql;
       let isInsert = formattedSql.trim().toUpperCase().startsWith('INSERT');
-      if (isInsert && !formattedSql.toUpperCase().includes('RETURNING')) {
+      if (isInsert && !formattedSql.toUpperCase().includes('RETURNING') && !formattedSql.toUpperCase().includes('ON CONFLICT')) {
         finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
+      } else if (formattedSql.toUpperCase().includes('ON CONFLICT')) {
+        finalSql = formattedSql;
+      } else if (formattedSql.toUpperCase().replace(/\s+/g, ' ').includes('INSERT INTO') && formattedSql.toUpperCase().includes('VALUES')) {
+        // 对于 INSERT OR IGNORE 转换后的语句，添加 ON CONFLICT DO NOTHING
+        finalSql = formattedSql.replace(/VALUES\s*\([^)]+\)/i, (match) => `${match} ON CONFLICT DO NOTHING`);
       }
-      
+
       const result = await this.client.query(finalSql, params);
       return {
         lastInsertRowid: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
