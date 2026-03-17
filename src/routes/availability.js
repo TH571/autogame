@@ -32,7 +32,7 @@ router.get('/', authMiddleware, (req, res) => {
 });
 
 // 提交可用时间（单个）
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { date, timeSlot, activityCode } = req.body;
 
@@ -57,18 +57,18 @@ router.post('/', authMiddleware, (req, res) => {
 
     // 检查用户是否在该活动代码中
     const ActivityCode = require('../models/ActivityCode');
-    const activityCodeRecord = ActivityCode.getByCode(activityCode);
+    const activityCodeRecord = await ActivityCode.getByCode(activityCode);
     if (!activityCodeRecord) {
       return res.status(400).json({ error: '活动代码不存在' });
     }
 
-    const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
+    const isInCode = await ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
     if (!isInCode && req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 
     // 检查是否可以修改（24 小时后悔期逻辑）
-    const modifyStatus = Availability.canModify(req.user.id, date, timeSlot);
+    const modifyStatus = await Availability.canModify(req.user.id, date, timeSlot);
     if (!modifyStatus.canModify) {
       let errorMsg = '该时间段已锁定，无法修改';
       if (modifyStatus.reason === 'locked' && modifyStatus.hoursRemaining > 0) {
@@ -77,7 +77,7 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(400).json({ error: errorMsg });
     }
 
-    Availability.add(req.user.id, date, timeSlot, activityCode);
+    await Availability.add(req.user.id, date, timeSlot, activityCode);
 
     res.json({
       message: '申报成功',
@@ -96,7 +96,7 @@ router.post('/', authMiddleware, (req, res) => {
 });
 
 // 批量提交可用时间
-router.post('/batch', authMiddleware, (req, res) => {
+router.post('/batch', authMiddleware, async (req, res) => {
   try {
     const { availabilities, activityCode } = req.body;
 
@@ -110,12 +110,12 @@ router.post('/batch', authMiddleware, (req, res) => {
 
     // 检查用户是否在该活动代码中
     const ActivityCode = require('../models/ActivityCode');
-    const activityCodeRecord = ActivityCode.getByCode(activityCode);
+    const activityCodeRecord = await ActivityCode.getByCode(activityCode);
     if (!activityCodeRecord) {
       return res.status(400).json({ error: '活动代码不存在' });
     }
 
-    const isInCode = ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
+    const isInCode = await ActivityCode.isUserInCode(activityCodeRecord.id, req.user.id);
     if (!isInCode && req.user.role !== 'super_admin' && req.user.role !== 'activity_admin') {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
@@ -139,7 +139,7 @@ router.post('/batch', authMiddleware, (req, res) => {
       }
 
       // 检查是否可以修改（24 小时后悔期逻辑）
-      const modifyStatus = Availability.canModify(req.user.id, av.date, av.timeSlot);
+      const modifyStatus = await Availability.canModify(req.user.id, av.date, av.timeSlot);
       if (!modifyStatus.canModify) {
         if (modifyStatus.reason === 'locked' && modifyStatus.hoursRemaining > 0) {
           errors.push(`${av.date} ${getTimeSlotText(av.timeSlot)}: 已锁定 (${modifyStatus.hoursRemaining}小时后可修改)`);
@@ -162,7 +162,7 @@ router.post('/batch', authMiddleware, (req, res) => {
     }
 
     if (validAvailabilities.length > 0) {
-      Availability.addBatch(req.user.id, validAvailabilities);
+      await Availability.addBatch(req.user.id, validAvailabilities);
     }
 
     let message = `成功提交 ${validAvailabilities.length} 条申报`;
