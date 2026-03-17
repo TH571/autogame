@@ -322,7 +322,7 @@ router.get('/diagnostic', async (req, res) => {
     let tables = [];
     let userCount = 0;
     
-    if (usePostgres) {
+    if (usePostgres || process.env.VERCEL) {
       dbStatus = 'PostgreSQL';
       const postgresDb = await db.getDb();
       try {
@@ -360,6 +360,23 @@ router.get('/diagnostic', async (req, res) => {
     });
   } catch (error) {
     console.error('诊断错误:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 数据库迁移 API - 手动触发迁移（仅超级管理员）
+router.post('/migrate', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: '需要超级管理员权限' });
+    }
+    
+    const { initDatabase } = require('../utils/init-db');
+    await initDatabase();
+    
+    res.json({ message: '数据库迁移成功' });
+  } catch (error) {
+    console.error('迁移错误:', error);
     res.status(500).json({ error: error.message });
   }
 });
