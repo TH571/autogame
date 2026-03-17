@@ -103,18 +103,25 @@ class DatabaseAdapter {
 
       // PostgreSQL 语法转换
       // INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
+      // INSERT OR REPLACE -> INSERT ... ON CONFLICT DO UPDATE SET ...
       formattedSql = formattedSql.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT');
+      formattedSql = formattedSql.replace(/INSERT\s+OR\s+REPLACE/gi, 'INSERT');
       
       // 对于 INSERT，添加 RETURNING id 来获取插入的 ID
       let finalSql = formattedSql;
       let isInsert = formattedSql.trim().toUpperCase().startsWith('INSERT');
       if (isInsert && !formattedSql.toUpperCase().includes('RETURNING') && !formattedSql.toUpperCase().includes('ON CONFLICT')) {
-        finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
+        // 检查是否是 INSERT OR REPLACE 转换后的语句
+        if (formattedSql.toUpperCase().includes('AVAILABILITY') && formattedSql.toUpperCase().includes('USER_ID') && formattedSql.toUpperCase().includes('DATE')) {
+          // availability 表有 UNIQUE(user_id, date, time_slot) 约束
+          finalSql = formattedSql.replace(/VALUES\s*\([^)]+\)/i, (match) => `${match} ON CONFLICT (user_id, date, time_slot) DO UPDATE SET updated_at = CURRENT_TIMESTAMP, last_modified = CURRENT_TIMESTAMP, activity_code = EXCLUDED.activity_code`);
+        } else if (formattedSql.toUpperCase().includes('ON CONFLICT')) {
+          finalSql = formattedSql;
+        } else {
+          finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
+        }
       } else if (formattedSql.toUpperCase().includes('ON CONFLICT')) {
         finalSql = formattedSql;
-      } else if (formattedSql.toUpperCase().replace(/\s+/g, ' ').includes('INSERT INTO') && formattedSql.toUpperCase().includes('VALUES')) {
-        // 对于 INSERT OR IGNORE 转换后的语句，添加 ON CONFLICT DO NOTHING
-        finalSql = formattedSql.replace(/VALUES\s*\([^)]+\)/i, (match) => `${match} ON CONFLICT DO NOTHING`);
       }
 
       const result = await this.client.query(finalSql, params);
