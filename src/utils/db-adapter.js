@@ -39,8 +39,21 @@ class DatabaseAdapter {
   constructor() {
     this.db = null;
     this.client = null;
+    // 同步获取 SQLite 连接（非 Vercel 环境）
     if (!isVercel) {
-      this.db = getDb();
+      const Database = require('better-sqlite3');
+      const path = require('path');
+      const fs = require('fs');
+
+      const dbPath = process.env.DATABASE_PATH || './data/autogame.db';
+      const dataDir = path.dirname(dbPath);
+
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+
+      this.db = new Database(dbPath);
+      this.db.pragma('foreign_keys = ON');
     }
   }
 
