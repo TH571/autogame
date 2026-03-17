@@ -816,6 +816,9 @@ async function loadActivityManagement() {
             <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
               <i class="bi bi-sliders"></i>
             </button>
+            <button class="btn btn-outline-success" onclick="showActivityInviteModal(${code.id}, '${code.name}')" title="邀请二维码">
+              <i class="bi bi-qr-code"></i>
+            </button>
             <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
               <i class="bi bi-trash"></i>
             </button>
@@ -825,7 +828,7 @@ async function loadActivityManagement() {
     `).join('');
 
     if (codes.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无活动代码</td></tr>';
     }
   } catch (error) {
     showToast('加载活动管理失败：' + error.message, 'danger');
