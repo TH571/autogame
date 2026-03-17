@@ -1995,15 +1995,15 @@ function updateUserInfo() {
   document.getElementById('userInfo').textContent = `${currentUser.name} (${roleText})`;
 }
 
-// ========== 活动邀请码管理 ==========
+// ========== 活动邀请码管理（活动代码专用） ==========
 
-let currentInviteCodeId = null;
-let currentInviteCode = null;
+let currentActivityInviteCodeId = null;
+let currentActivityInviteCode = null;
 
 // 显示活动邀请码管理模态框
 async function showActivityInviteModal(codeId, codeName) {
-  currentInviteCodeId = codeId;
-  currentInviteCode = null;
+  currentActivityInviteCodeId = codeId;
+  currentActivityInviteCode = null;
   document.getElementById('activityInviteModalTitle')?.textContent = `活动邀请码管理 - ${codeName}`;
   
   const modal = new bootstrap.Modal(document.getElementById('activityInviteModal'));
@@ -2015,10 +2015,10 @@ async function showActivityInviteModal(codeId, codeName) {
 
 // 加载活动邀请码列表
 async function loadActivityInvites() {
-  if (!currentInviteCodeId) return;
+  if (!currentActivityInviteCodeId) return;
   
   try {
-    const data = await apiRequest(`/activity/codes/${currentInviteCodeId}/invites`);
+    const data = await apiRequest(`/activity/codes/${currentActivityInviteCodeId}/invites`);
     const invites = data.invites || [];
     
     const tbody = document.getElementById('activityInviteList');
@@ -2052,10 +2052,10 @@ async function loadActivityInvites() {
 
 // 生成活动邀请码
 async function generateActivityInvite() {
-  if (!currentInviteCodeId) return;
+  if (!currentActivityInviteCodeId) return;
   
   try {
-    const data = await apiRequest(`/activity/codes/${currentInviteCodeId}/invite`, {
+    const data = await apiRequest(`/activity/codes/${currentActivityInviteCodeId}/invite`, {
       method: 'POST',
       body: JSON.stringify({ maxUses: 1 })
     });
@@ -2075,7 +2075,7 @@ async function generateActivityInvite() {
 
 // 选择邀请码（显示二维码）
 function selectInvite(code) {
-  currentInviteCode = code;
+  currentActivityInviteCode = code;
   document.getElementById('inviteUrlInput').value = `${window.location.origin}/invite/${code}`;
   
   // 生成二维码
@@ -2109,8 +2109,8 @@ async function deleteInvite(code) {
     await apiRequest(`/activity/invites/${code}`, { method: 'DELETE' });
     showToast('邀请码已删除', 'success');
     
-    if (currentInviteCode === code) {
-      currentInviteCode = null;
+    if (currentActivityInviteCode === code) {
+      currentActivityInviteCode = null;
       document.getElementById('activityQrcodeContainer').innerHTML = '';
       document.getElementById('inviteUrlInput').value = '';
     }
