@@ -955,9 +955,12 @@ async function saveActivityCode() {
       
       // 自动弹出人员分配对话框，并默认选中创建者
       setTimeout(() => {
+        console.log('[DEBUG] 完整返回数据 JSON:', JSON.stringify(result, null, 2));
         const newCode = result.code || { id: null, name: name };
         console.log('[DEBUG] 创建活动代码后返回的数据:', result);
         console.log('[DEBUG] newCode:', newCode);
+        console.log('[DEBUG] newCode.id:', newCode.id);
+        console.log('[DEBUG] newCode 的 keys:', Object.keys(newCode));
         if (newCode && newCode.id) {
           console.log('[DEBUG] 准备调用 showAssignUserModal:', newCode.id, newCode.name || name);
           showAssignUserModal(newCode.id, newCode.name || name, true);

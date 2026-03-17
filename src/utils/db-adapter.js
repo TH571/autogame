@@ -87,7 +87,15 @@ class DatabaseAdapter {
       // 将 ? 占位符转换为 $1, $2, ...
       let paramIndex = 1;
       const formattedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
-      const result = await this.pool.query(formattedSql, params);
+      
+      // 对于 INSERT，添加 RETURNING id 来获取插入的 ID
+      let finalSql = formattedSql;
+      let isInsert = formattedSql.trim().toUpperCase().startsWith('INSERT');
+      if (isInsert && !formattedSql.toUpperCase().includes('RETURNING')) {
+        finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
+      }
+      
+      const result = await this.pool.query(finalSql, params);
       return {
         lastInsertRowid: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
         changes: result.rowCount
