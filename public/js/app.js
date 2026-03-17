@@ -954,11 +954,15 @@ async function saveActivityCode() {
       }
       
       // 自动弹出人员分配对话框，并默认选中创建者
-      // 使用返回的 code 信息或重新获取
-      setTimeout(async () => {
+      setTimeout(() => {
         const newCode = result.code || { id: null, name: name };
-        if (newCode.id) {
+        console.log('[DEBUG] 创建活动代码后返回的数据:', result);
+        console.log('[DEBUG] newCode:', newCode);
+        if (newCode && newCode.id) {
+          console.log('[DEBUG] 准备调用 showAssignUserModal:', newCode.id, newCode.name || name);
           showAssignUserModal(newCode.id, newCode.name || name, true);
+        } else {
+          console.error('[DEBUG] newCode.id 不存在:', newCode);
         }
       }, 500);
     }
