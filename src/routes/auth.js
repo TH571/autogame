@@ -153,11 +153,14 @@ router.post('/login', async (req, res) => {
 
     // 查找用户（异步）
     const user = await User.findByEmail(email);
-    console.log('[Login] 用户查询结果:', user ? '找到用户' : '用户不存在');
+    console.log('[Login] 用户查询结果:', user ? JSON.stringify(user) : '用户不存在');
 
     if (!user) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
+
+    console.log('[Login] 数据库中的密码哈希:', user.password.substring(0, 20) + '...');
+    console.log('[Login] 输入的密码:', password);
 
     // 验证密码
     const isValidPassword = bcrypt.compareSync(password, user.password);
@@ -197,7 +200,7 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('[Login] 登录错误:', error);
     console.error('[Login] 错误堆栈:', error.stack);
-    res.status(500).json({ error: '登录失败，请稍后重试' });
+    res.status(500).json({ error: '登录失败：' + error.message });
   }
 });
 
