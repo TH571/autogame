@@ -214,14 +214,18 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
     const dates = [];
     const today = new Date();
 
+    console.log('[Availability] 获取日期列表，activityCode:', activityCode, 'userId:', req.user.id);
+
     // 获取用户已有的申报（根据活动代码过滤）
     let userAvailabilities;
     if (activityCode) {
-      userAvailabilities = Availability.getByUserAndCode(req.user.id, activityCode);
+      userAvailabilities = await Availability.getByUserAndCode(req.user.id, activityCode);
     } else {
-      userAvailabilities = Availability.getByUser(req.user.id);
+      userAvailabilities = await Availability.getByUser(req.user.id);
     }
-    
+
+    console.log('[Availability] 用户申报数据:', userAvailabilities);
+
     const availMap = {};
     userAvailabilities.forEach(a => {
       const key = `${a.date}-${a.time_slot}`;
@@ -241,12 +245,12 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
       };
 
       // 检查每个时间段
-      [1, 2, 3].forEach(slot => {
+      [1, 2, 3].forEach(async (slot) => {
         const key = `${dateStr}-${slot}`;
         const existing = availMap[key];
 
         if (existing) {
-          const modifyStatus = Availability.canModify(req.user.id, dateStr, slot);
+          const modifyStatus = await Availability.canModify(req.user.id, dateStr, slot);
           dayStatus.slots[slot] = {
             exists: true,
             isLocked: !modifyStatus.canModify,
@@ -264,8 +268,10 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
       dates.push(dayStatus);
     }
 
+    console.log('[Availability] 返回日期列表:', dates.length);
     res.json({ dates });
   } catch (error) {
+    console.error('[Availability] 获取日期列表错误:', error.message, error.stack);
     console.error('获取日期列表错误:', error);
     res.status(500).json({ error: '获取日期列表失败' });
   }
