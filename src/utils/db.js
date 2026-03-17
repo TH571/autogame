@@ -1,28 +1,26 @@
-const { Pool } = require('pg');
+const { createClient } = require('@vercel/postgres');
 
 // 检查是否为 Vercel 环境
 const isVercel = process.env.VERCEL === '1';
 
-let pool = null;
+let client = null;
 let sqliteDb = null;
 
 // 获取数据库连接
 async function getDb() {
   if (isVercel) {
-    // Vercel Postgres - 使用 pg 连接池
-    if (!pool) {
-      const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL;
-      
-      pool = new Pool({
-        connectionString,
-        ssl: {
-          rejectUnauthorized: false
-        }
-      });
-      
-      console.log('[DB] PostgreSQL 连接池已创建');
+    // Vercel Postgres - 使用 createClient 自动读取环境变量
+    if (!client) {
+      try {
+        client = createClient();
+        await client.connect();
+        console.log('[DB] Vercel Postgres 已连接');
+      } catch (error) {
+        console.error('[DB] Vercel Postgres 连接失败:', error.message);
+        throw error;
+      }
     }
-    return pool;
+    return client;
   } else {
     // 本地 SQLite（开发环境）
     const Database = require('better-sqlite3');

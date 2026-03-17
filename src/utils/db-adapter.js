@@ -38,7 +38,7 @@ function convertPostgresResult(rows, isSingle = false) {
 class DatabaseAdapter {
   constructor() {
     this.db = null;
-    this.pool = null;
+    this.client = null;
     if (!isVercel) {
       this.db = getDb();
     }
@@ -47,13 +47,13 @@ class DatabaseAdapter {
   // 执行查询（返回多行）
   async all(sql, params = []) {
     if (isVercel) {
-      if (!this.pool) {
-        this.pool = await getDb();
+      if (!this.client) {
+        this.client = await getDb();
       }
       // 将 ? 占位符转换为 $1, $2, ...
       let paramIndex = 1;
       const formattedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
-      const result = await this.pool.query(formattedSql, params);
+      const result = await this.client.query(formattedSql, params);
       return convertPostgresResult(result.rows);
     }
 
@@ -64,13 +64,13 @@ class DatabaseAdapter {
   // 执行查询（返回单行）
   async get(sql, params = []) {
     if (isVercel) {
-      if (!this.pool) {
-        this.pool = await getDb();
+      if (!this.client) {
+        this.client = await getDb();
       }
       // 将 ? 占位符转换为 $1, $2, ...
       let paramIndex = 1;
       const formattedSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
-      const result = await this.pool.query(formattedSql, params);
+      const result = await this.client.query(formattedSql, params);
       return convertPostgresResult(result.rows, true);
     }
 
@@ -81,8 +81,8 @@ class DatabaseAdapter {
   // 执行插入/更新/删除
   async run(sql, params = []) {
     if (isVercel) {
-      if (!this.pool) {
-        this.pool = await getDb();
+      if (!this.client) {
+        this.client = await getDb();
       }
       // 将 ? 占位符转换为 $1, $2, ...
       let paramIndex = 1;
@@ -95,7 +95,7 @@ class DatabaseAdapter {
         finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
       }
       
-      const result = await this.pool.query(finalSql, params);
+      const result = await this.client.query(finalSql, params);
       return {
         lastInsertRowid: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
         changes: result.rowCount
