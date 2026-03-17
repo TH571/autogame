@@ -1,23 +1,28 @@
-const { createClient } = require('@vercel/postgres');
+const { Pool } = require('pg');
 
 // 检查是否为 Vercel 环境
 const isVercel = process.env.VERCEL === '1';
 
-let client = null;
+let pool = null;
 let sqliteDb = null;
 
 // 获取数据库连接
 async function getDb() {
   if (isVercel) {
-    // Vercel Postgres - 使用 createClient 和 NON_POOLING 连接字符串
-    if (!client) {
-      client = createClient({
-        connectionString: process.env.POSTGRES_URL_NON_POOLING
+    // Vercel Postgres - 使用 pg 连接池
+    if (!pool) {
+      const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL;
+      
+      pool = new Pool({
+        connectionString,
+        ssl: {
+          rejectUnauthorized: false
+        }
       });
-      await client.connect();
-      console.log('[DB] Vercel Postgres 已连接');
+      
+      console.log('[DB] PostgreSQL 连接池已创建');
     }
-    return client;
+    return pool;
   } else {
     // 本地 SQLite（开发环境）
     const Database = require('better-sqlite3');
@@ -183,7 +188,7 @@ async function initPostgres() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_activities_date_slot ON activities(date, time_slot, status)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_members_activity ON activity_members(activity_id)`);
 
-    console.log('✓ Vercel Postgres 数据库初始化完成');
+    console.log('✓ PostgreSQL 数据库初始化完成');
 
     // 创建默认用户
     await createDefaultUsers();
