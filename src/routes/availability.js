@@ -236,7 +236,9 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
 
     const availMap = {};
     userAvailabilities.forEach(a => {
-      const key = `${a.date}-${a.time_slot}`;
+      // 处理日期格式，去掉时间部分
+      const dateOnly = a.date.split(' ')[0] || a.date;
+      const key = `${dateOnly}-${a.time_slot}`;
       availMap[key] = a;
     });
 
@@ -252,8 +254,8 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
         slots: {}
       };
 
-      // 检查每个时间段
-      [1, 2, 3].forEach(async (slot) => {
+      // 检查每个时间段（使用 for 循环而不是 forEach 以支持 async）
+      for (let slot = 1; slot <= 3; slot++) {
         const key = `${dateStr}-${slot}`;
         const existing = availMap[key];
 
@@ -271,7 +273,7 @@ router.get('/dates/next14', authMiddleware, async (req, res) => {
             isLocked: false
           };
         }
-      });
+      }
 
       dates.push(dayStatus);
     }
