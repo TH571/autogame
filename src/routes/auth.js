@@ -199,9 +199,9 @@ router.post('/login', async (req, res) => {
 });
 
 // 获取当前用户信息
-router.get('/me', authMiddleware, (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const user = User.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
@@ -209,7 +209,7 @@ router.get('/me', authMiddleware, (req, res) => {
     // 获取邀请码（如果是活动管理员或超级管理员）
     let inviteCode = null;
     if (user.role === 'activity_admin' || user.role === 'super_admin') {
-      const inviteData = User.getInviteCode(user.id);
+      const inviteData = await User.getInviteCode(user.id);
       inviteCode = inviteData ? {
         code: inviteData.code,
         is_used: inviteData.is_used === 1,

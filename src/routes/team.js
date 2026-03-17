@@ -51,20 +51,20 @@ router.post('/build/:date', authMiddleware, activityAdminMiddleware, (req, res) 
 });
 
 // 获取所有活动
-router.get('/activities', authMiddleware, (req, res) => {
+router.get('/activities', authMiddleware, async (req, res) => {
   try {
-    const activities = Activity.getAll();
-    
+    const activities = await Activity.getAll();
+
     // 获取每个活动的成员
-    const activitiesWithMembers = activities.map(activity => {
-      const members = Activity.getMembers(activity.id);
+    const activitiesWithMembers = await Promise.all(activities.map(async (activity) => {
+      const members = await Activity.getMembers(activity.id);
       return {
         ...activity,
         timeSlotText: getTimeSlotText(activity.time_slot),
         memberCount: members.length,
         members
       };
-    });
+    }));
 
     res.json({ activities: activitiesWithMembers });
   } catch (error) {
@@ -74,19 +74,19 @@ router.get('/activities', authMiddleware, (req, res) => {
 });
 
 // 获取未来活动
-router.get('/activities/upcoming', authMiddleware, (req, res) => {
+router.get('/activities/upcoming', authMiddleware, async (req, res) => {
   try {
-    const activities = Activity.getUpcoming();
-    
-    const activitiesWithMembers = activities.map(activity => {
-      const members = Activity.getMembers(activity.id);
+    const activities = await Activity.getUpcoming();
+
+    const activitiesWithMembers = await Promise.all(activities.map(async (activity) => {
+      const members = await Activity.getMembers(activity.id);
       return {
         ...activity,
         timeSlotText: getTimeSlotText(activity.time_slot),
         memberCount: members.length,
         members
       };
-    });
+    }));
 
     res.json({ activities: activitiesWithMembers });
   } catch (error) {
@@ -96,10 +96,10 @@ router.get('/activities/upcoming', authMiddleware, (req, res) => {
 });
 
 // 获取用户的活动
-router.get('/activities/my', authMiddleware, (req, res) => {
+router.get('/activities/my', authMiddleware, async (req, res) => {
   try {
-    const history = Activity.getUserParticipationHistory(req.user.id);
-    
+    const history = await Activity.getUserParticipationHistory(req.user.id);
+
     const activities = history.map(h => ({
       id: h.id,
       date: h.date,

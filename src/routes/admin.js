@@ -7,18 +7,18 @@ const Availability = require('../models/Availability');
 const { authMiddleware, activityAdminMiddleware, superAdminMiddleware } = require('../middleware/auth');
 
 // 获取所有用户（管理员）
-router.get('/users', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/users', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     let users;
-    
+
     // 超级管理员可以看到所有用户
     if (req.user.role === 'super_admin') {
-      users = User.findAll();
+      users = await User.findAll();
     } else {
       // 活动管理员只能看到自己管理的用户
-      users = User.findByActivityAdminId(req.user.id);
+      users = await User.findByActivityAdminId(req.user.id);
     }
-    
+
     const formattedUsers = users.map(u => ({
       id: u.id,
       email: u.email,
@@ -45,7 +45,7 @@ router.post('/users', authMiddleware, activityAdminMiddleware, async (req, res) 
     }
 
     // 检查邮箱是否已存在
-    const existingUser = User.findByEmail(email);
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: '该邮箱已被注册' });
     }
@@ -54,11 +54,11 @@ router.post('/users', authMiddleware, activityAdminMiddleware, async (req, res) 
     const userRole = role || 'user';
 
     // 传递 activityAdminId 参数
-    const result = User.create(email, hashedPassword, name, userRole, activityAdminId || null);
+    const result = await User.create(email, hashedPassword, name, userRole, activityAdminId || null);
 
     // 如果是种子选手，更新 is_seed
     if (isSeed) {
-      User.update(result.lastInsertRowid, { is_seed: 1 });
+      await User.update(result.lastInsertRowid, { is_seed: 1 });
     }
 
     res.status(201).json({
@@ -96,7 +96,7 @@ router.put('/users/:id', authMiddleware, activityAdminMiddleware, async (req, re
       return res.status(400).json({ error: '没有要更新的内容' });
     }
 
-    User.update(id, updateData);
+    await User.update(id, updateData);
 
     res.json({ message: '用户更新成功' });
   } catch (error) {
@@ -124,10 +124,10 @@ router.delete('/users/:id', authMiddleware, activityAdminMiddleware, (req, res) 
 });
 
 // 获取所有活动（管理员）
-router.get('/activities', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/activities', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const activities = Activity.getAll();
-    
+    const activities = await Activity.getAll();
+
     const activitiesWithMembers = activities.map(activity => {
       const members = Activity.getMembers(activity.id);
       return {
@@ -176,13 +176,13 @@ router.delete('/activities/:id', authMiddleware, activityAdminMiddleware, (req, 
 });
 
 // 获取所有用户的申报（管理员）
-router.get('/availabilities', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/availabilities', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const users = User.findAll();
+    const users = await User.findAll();
     const availabilities = [];
 
     for (const user of users) {
-      const userAvailabilities = Availability.getByUser(user.id);
+      const userAvailabilities = await Availability.getByUser(user.id);
       availabilities.push({
         userId: user.id,
         userName: user.name,
@@ -204,17 +204,17 @@ router.get('/availabilities', authMiddleware, activityAdminMiddleware, (req, res
 });
 
 // 获取指定用户的申报详情（管理员）
-router.get('/availabilities/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/availabilities/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = User.findById(userId);
-    
+    const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
-    
-    const availabilities = Availability.getByUser(userId);
-    
+
+    const availabilities = await Availability.getByUser(userId);
+
     res.json({
       user: {
         id: user.id,
@@ -237,33 +237,33 @@ router.get('/availabilities/:userId', authMiddleware, activityAdminMiddleware, (
 });
 
 // 为用户添加申报（管理员）
-router.post('/availabilities/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/availabilities/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
     const { date, timeSlot } = req.body;
-    
+
     // 验证
     if (!date || !timeSlot) {
       return res.status(400).json({ error: '日期和时间段不能为空' });
     }
-    
+
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
       return res.status(400).json({ error: '日期格式不正确' });
     }
-    
+
     if (![1, 2, 3].includes(timeSlot)) {
       return res.status(400).json({ error: '时间段必须是 1(下午)、2(晚上) 或 3(下午连晚上)' });
     }
-    
+
     // 检查用户是否存在
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
-    
-    Availability.add(userId, date, timeSlot);
-    
+
+    await Availability.add(userId, date, timeSlot);
+
     res.json({
       message: '添加成功',
       availability: {
@@ -279,23 +279,23 @@ router.post('/availabilities/:userId', authMiddleware, activityAdminMiddleware, 
 });
 
 // 批量为用户添加申报（管理员）
-router.post('/availabilities/:userId/batch', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/availabilities/:userId/batch', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
     const { availabilities } = req.body;
-    
+
     if (!Array.isArray(availabilities) || availabilities.length === 0) {
       return res.status(400).json({ error: '可用时间列表不能为空' });
     }
-    
+
     // 检查用户是否存在
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
-    
-    Availability.addBatch(userId, availabilities);
-    
+
+    await Availability.addBatch(userId, availabilities);
+
     res.json({
       message: `成功添加 ${availabilities.length} 条申报`
     });
@@ -306,19 +306,19 @@ router.post('/availabilities/:userId/batch', authMiddleware, activityAdminMiddle
 });
 
 // 删除用户的申报（管理员）
-router.delete('/availabilities/:userId/:date/:timeSlot', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.delete('/availabilities/:userId/:date/:timeSlot', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { userId, date, timeSlot } = req.params;
     const timeSlotNum = parseInt(timeSlot, 10);
-    
+
     // 检查用户是否存在
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: '用户不存在' });
     }
-    
-    Availability.remove(userId, date, timeSlotNum);
-    
+
+    await Availability.remove(userId, date, timeSlotNum);
+
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('删除申报错误:', error);

@@ -5,22 +5,20 @@ const User = require('../models/User');
 const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
 // 获取所有活动代码（管理员）
-router.get('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/codes', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const ActivityCode = require('../models/ActivityCode');
-    
     let codes;
     // 超级管理员可以看到所有活动代码
     if (req.user.role === 'super_admin') {
-      codes = ActivityCode.getAll();
+      codes = await ActivityCode.getAll();
       console.log('超级管理员获取所有活动代码:', codes.length);
     } else {
       // 活动管理员只能看到自己创建的活动代码
-      const allCodes = ActivityCode.getAll();
+      const allCodes = await ActivityCode.getAll();
       codes = allCodes.filter(c => c.created_by === req.user.id);
       console.log('活动管理员获取活动代码:', codes.length);
     }
-    
+
     res.json({ codes });
   } catch (error) {
     console.error('获取活动代码错误:', error);
@@ -29,9 +27,9 @@ router.get('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
 });
 
 // 获取用户的活动代码
-router.get('/codes/my', authMiddleware, (req, res) => {
+router.get('/codes/my', authMiddleware, async (req, res) => {
   try {
-    const codes = ActivityCode.getCodesByUserId(req.user.id);
+    const codes = await ActivityCode.getCodesByUserId(req.user.id);
     res.json({ codes });
   } catch (error) {
     console.error('获取用户活动代码错误:', error);
@@ -40,7 +38,7 @@ router.get('/codes/my', authMiddleware, (req, res) => {
 });
 
 // 创建活动代码（管理员）
-router.post('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/codes', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { code, name, description, rules } = req.body;
 
@@ -49,12 +47,12 @@ router.post('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
     }
 
     // 检查代码是否已存在
-    const existing = ActivityCode.getByCode(code);
+    const existing = await ActivityCode.getByCode(code);
     if (existing) {
       return res.status(400).json({ error: '活动代码已存在' });
     }
 
-    const result = ActivityCode.create(code, name, description, req.user.id, rules);
+    const result = await ActivityCode.create(code, name, description, req.user.id, rules);
 
     res.status(201).json({
       message: '活动代码创建成功',
@@ -73,13 +71,13 @@ router.post('/codes', authMiddleware, activityAdminMiddleware, (req, res) => {
 });
 
 // 更新活动代码（管理员）
-router.put('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.put('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, rules } = req.body;
 
     // 获取现有活动代码
-    const existing = ActivityCode.getById(id);
+    const existing = await ActivityCode.getById(id);
     if (!existing) {
       return res.status(404).json({ error: '活动代码不存在' });
     }
@@ -87,7 +85,7 @@ router.put('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => 
     // 使用新值或现有值
     const updatedName = name || existing.name;
     const updatedDescription = description !== undefined ? description : existing.description;
-    
+
     // 合并规则
     const updatedRules = {
       minPlayers: rules?.minPlayers !== undefined ? rules.minPlayers : existing.min_players,
@@ -97,7 +95,7 @@ router.put('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => 
       seedRequired: rules?.seedRequired !== undefined ? rules.seedRequired : (existing.seed_required === 1)
     };
 
-    ActivityCode.update(id, updatedName, updatedDescription, updatedRules);
+    await ActivityCode.update(id, updatedName, updatedDescription, updatedRules);
 
     res.json({ message: '活动代码更新成功' });
   } catch (error) {
@@ -107,15 +105,15 @@ router.put('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => 
 });
 
 // 获取单个活动代码详情（管理员）
-router.get('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const code = ActivityCode.getById(id);
-    
+    const code = await ActivityCode.getById(id);
+
     if (!code) {
       return res.status(404).json({ error: '活动代码不存在' });
     }
-    
+
     res.json(code);
   } catch (error) {
     console.error('获取活动代码错误:', error);
@@ -124,10 +122,10 @@ router.get('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => 
 });
 
 // 删除活动代码（管理员）
-router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    ActivityCode.delete(id);
+    await ActivityCode.delete(id);
     res.json({ message: '活动代码删除成功' });
   } catch (error) {
     console.error('删除活动代码错误:', error);
@@ -136,10 +134,10 @@ router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, (req, res) 
 });
 
 // 获取活动代码的用户列表（管理员）
-router.get('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/codes/:id/users', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const users = ActivityCode.getUsersByCodeId(id);
+    const users = await ActivityCode.getUsersByCodeId(id);
     res.json({ users });
   } catch (error) {
     console.error('获取用户列表错误:', error);
@@ -148,7 +146,7 @@ router.get('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, re
 });
 
 // 为活动代码添加用户（管理员）
-router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { userIds } = req.body;
@@ -157,7 +155,7 @@ router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, r
       return res.status(400).json({ error: '用户列表不能为空' });
     }
 
-    ActivityCode.addUsersBatch(id, userIds);
+    await ActivityCode.addUsersBatch(id, userIds);
 
     res.json({ message: `成功添加 ${userIds.length} 名用户` });
   } catch (error) {
@@ -167,10 +165,10 @@ router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, (req, r
 });
 
 // 从活动代码移除用户（管理员）
-router.delete('/codes/:id/users/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.delete('/codes/:id/users/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id, userId } = req.params;
-    ActivityCode.removeUser(id, userId);
+    await ActivityCode.removeUser(id, userId);
     res.json({ message: '用户已移除' });
   } catch (error) {
     console.error('移除用户错误:', error);
@@ -181,10 +179,10 @@ router.delete('/codes/:id/users/:userId', authMiddleware, activityAdminMiddlewar
 // ========== 种子选手管理 ==========
 
 // 获取活动代码的种子选手列表（管理员）
-router.get('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const seeds = ActivityCode.getSeedsByCodeId(id);
+    const seeds = await ActivityCode.getSeedsByCodeId(id);
     res.json({ seeds });
   } catch (error) {
     console.error('获取种子选手列表错误:', error);
@@ -193,7 +191,7 @@ router.get('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, re
 });
 
 // 为活动代码添加种子选手（管理员）
-router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { userIds } = req.body;
@@ -202,7 +200,7 @@ router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, r
       return res.status(400).json({ error: '种子选手列表不能为空' });
     }
 
-    ActivityCode.addSeedsBatch(id, userIds);
+    await ActivityCode.addSeedsBatch(id, userIds);
 
     res.json({ message: `成功添加 ${userIds.length} 名种子选手` });
   } catch (error) {
@@ -212,10 +210,10 @@ router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, (req, r
 });
 
 // 从活动代码移除种子选手（管理员）
-router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id, userId } = req.params;
-    ActivityCode.removeSeed(id, userId);
+    await ActivityCode.removeSeed(id, userId);
     res.json({ message: '种子选手已移除' });
   } catch (error) {
     console.error('移除种子选手错误:', error);
@@ -224,18 +222,18 @@ router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddlewar
 });
 
 // 获取所有用户（用于分配）
-router.get('/users/all', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/users/all', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     let users;
-    
+
     // 超级管理员可以看到所有用户
     if (req.user.role === 'super_admin') {
-      users = User.findAll();
+      users = await User.findAll();
     } else {
       // 活动管理员只能看到自己和关联的普通用户
-      users = User.findByActivityAdminId(req.user.id);
+      users = await User.findByActivityAdminId(req.user.id);
     }
-    
+
     const formattedUsers = users.map(u => ({
       id: u.id,
       email: u.email,
