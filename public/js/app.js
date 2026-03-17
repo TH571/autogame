@@ -2194,13 +2194,18 @@ async function useInviteCode(code) {
 // 跳转到登录
 function goToLogin() {
   localStorage.setItem('invite_code_redirect', inviteCodeFromUrl);
+  // 显示认证页面
+  document.getElementById('invitePage').classList.add('d-none');
+  document.getElementById('authPage').classList.remove('d-none');
   showLogin();
 }
 
 // 跳转到注册
 function goToRegister() {
-  // 存储活动邀请码，注册时自动使用
   localStorage.setItem('activity_invite_code', inviteCodeFromUrl);
+  // 显示认证页面
+  document.getElementById('invitePage').classList.add('d-none');
+  document.getElementById('authPage').classList.remove('d-none');
   showRegister();
   // 自动填充邀请码
   setTimeout(() => {
