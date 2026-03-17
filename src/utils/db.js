@@ -11,14 +11,8 @@ async function getDb() {
   if (isVercel) {
     // Vercel Postgres - 使用 createClient 自动读取环境变量
     if (!client) {
-      try {
-        client = createClient();
-        await client.connect();
-        console.log('[DB] Vercel Postgres 已连接');
-      } catch (error) {
-        console.error('[DB] Vercel Postgres 连接失败:', error.message);
-        throw error;
-      }
+      client = createClient();
+      console.log('[DB] Vercel Postgres 客户端已创建');
     }
     return client;
   } else {
