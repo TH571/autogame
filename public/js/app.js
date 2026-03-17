@@ -63,7 +63,7 @@ async function apiRequest(endpoint, options = {}) {
 // 检查登录状态
 async function checkAuth() {
   userToken = localStorage.getItem('token');
-  
+
   if (!userToken) {
     showAuthPage();
     return;
@@ -74,10 +74,25 @@ async function checkAuth() {
     currentUser = data.user;
     showMainApp();
   } catch (error) {
-    localStorage.removeItem('token');
-    userToken = null;
-    currentUser = null;
-    showAuthPage();
+    // 只在明确是 401 错误（token 过期或无效）时才清除 token
+    if (error.message && error.message.includes('未授权')) {
+      localStorage.removeItem('token');
+      userToken = null;
+      currentUser = null;
+      showAuthPage();
+    } else {
+      // 其他错误（如网络问题）保留 token，显示主应用
+      console.log('检查登录状态失败，但保留 token:', error.message);
+      // 尝试从 localStorage 恢复用户信息
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        showMainApp();
+      } else {
+        // 如果没有保存的用户信息，显示主应用但允许用户重新登录
+        showMainApp();
+      }
+    }
   }
 }
 
@@ -194,7 +209,8 @@ async function handleLogin(event) {
     userToken = data.token;
     currentUser = data.user;
     localStorage.setItem('token', data.token);
-    
+    localStorage.setItem('user', JSON.stringify(data.user));
+
     showToast('登录成功！', 'success');
     showMainApp();
   } catch (error) {
@@ -238,7 +254,8 @@ async function handleRegister(event) {
     userToken = data.token;
     currentUser = data.user;
     localStorage.setItem('token', data.token);
-    
+    localStorage.setItem('user', JSON.stringify(data.user));
+
     // 清除活动邀请码重定向
     localStorage.removeItem('activity_invite_code');
 
