@@ -133,18 +133,23 @@ router.post('/register', async (req, res) => {
     if (isActivityInvite) {
       try {
         const activityInvite = await ActivityInvite.getByCode(inviteCode);
-        
+        console.log('[Register] 获取到的活动邀请码:', activityInvite);
+
         if (activityInvite) {
           console.log('[Register] 活动邀请码注册，添加用户到活动:', activityInvite.activity_code_id, result.lastInsertRowid);
           // 将用户添加到活动代码
-          await ActivityCode.addUser(activityInvite.activity_code_id, result.lastInsertRowid);
-          
+          const addUserResult = await ActivityCode.addUser(activityInvite.activity_code_id, result.lastInsertRowid);
+          console.log('[Register] 添加用户结果:', addUserResult);
+
           // 标记邀请码为已使用
-          await ActivityInvite.markAsUsed(inviteCode, result.lastInsertRowid);
+          const markResult = await ActivityInvite.markAsUsed(inviteCode, result.lastInsertRowid);
+          console.log('[Register] 标记邀请码结果:', markResult);
           console.log('[Register] 用户添加成功，邀请码已标记为已使用');
+        } else {
+          console.error('[Register] 未找到活动邀请码');
         }
       } catch (error) {
-        console.error('[Register] 添加用户到活动失败:', error);
+        console.error('[Register] 添加用户到活动失败:', error.message, error.stack);
         // 不阻止注册成功，只是记录错误
       }
     }
