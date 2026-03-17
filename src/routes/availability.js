@@ -4,13 +4,21 @@ const Availability = require('../models/Availability');
 const { authMiddleware } = require('../middleware/auth');
 
 // 获取用户的可用时间
-router.get('/', authMiddleware, (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const availabilities = Availability.getByUser(req.user.id);
+    const activityCode = req.query.activityCode;
+    
+    // 根据活动代码过滤
+    let availabilities;
+    if (activityCode) {
+      availabilities = await Availability.getByUserAndCode(req.user.id, activityCode);
+    } else {
+      availabilities = await Availability.getByUser(req.user.id);
+    }
 
     // 格式化返回数据，包含锁定状态
-    const formattedData = availabilities.map(a => {
-      const modifyStatus = Availability.canModify(req.user.id, a.date, a.time_slot);
+    const formattedData = await Promise.all(availabilities.map(async (a) => {
+      const modifyStatus = await Availability.canModify(req.user.id, a.date, a.time_slot);
       return {
         id: a.id,
         date: a.date,
@@ -22,7 +30,7 @@ router.get('/', authMiddleware, (req, res) => {
         lockReason: modifyStatus.reason,
         hoursRemaining: modifyStatus.hoursRemaining || 0
       };
-    });
+    }));
 
     res.json({ availabilities: formattedData });
   } catch (error) {
