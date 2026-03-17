@@ -5,6 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const User = require('../models/User');
+const ActivityInvite = require('../models/ActivityInvite');
+const ActivityCode = require('../models/ActivityCode');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -66,22 +68,21 @@ router.post('/register', async (req, res) => {
 
     // 检查是否是活动邀请码（INV-开头的格式）
     const isActivityInvite = inviteCode.startsWith('INV-');
-    
+
     // 活动邀请码只能注册为普通用户
     let userRole = 'user';
     if (isActivityInvite) {
       // 验证活动邀请码
-      const ActivityInvite = require('../models/ActivityInvite');
       const activityInvite = await ActivityInvite.getByCode(inviteCode);
-      
+
       if (!activityInvite) {
         return res.status(400).json({ error: '无效的活动邀请码' });
       }
-      
+
       if (activityInvite.is_used === 1) {
         return res.status(400).json({ error: '该邀请码已被使用' });
       }
-      
+
       // 强制设置为普通用户
       userRole = 'user';
     } else {
@@ -130,16 +131,21 @@ router.post('/register', async (req, res) => {
 
     // 如果是活动邀请码注册，将用户添加到活动代码中
     if (isActivityInvite) {
-      const ActivityInvite = require('../models/ActivityInvite');
-      const ActivityCode = require('../models/ActivityCode');
-      const activityInvite = await ActivityInvite.getByCode(inviteCode);
-      
-      if (activityInvite) {
-        // 将用户添加到活动代码
-        await ActivityCode.addUser(activityInvite.activity_code_id, result.lastInsertRowid);
+      try {
+        const activityInvite = await ActivityInvite.getByCode(inviteCode);
         
-        // 标记邀请码为已使用
-        await ActivityInvite.markAsUsed(inviteCode, result.lastInsertRowid);
+        if (activityInvite) {
+          console.log('[Register] 活动邀请码注册，添加用户到活动:', activityInvite.activity_code_id, result.lastInsertRowid);
+          // 将用户添加到活动代码
+          await ActivityCode.addUser(activityInvite.activity_code_id, result.lastInsertRowid);
+          
+          // 标记邀请码为已使用
+          await ActivityInvite.markAsUsed(inviteCode, result.lastInsertRowid);
+          console.log('[Register] 用户添加成功，邀请码已标记为已使用');
+        }
+      } catch (error) {
+        console.error('[Register] 添加用户到活动失败:', error);
+        // 不阻止注册成功，只是记录错误
       }
     }
 
