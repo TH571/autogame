@@ -45,6 +45,11 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// 邀请页面路由
+app.get('/invite/:code', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
 // 错误处理
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);

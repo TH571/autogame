@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ActivityCode = require('../models/ActivityCode');
 const User = require('../models/User');
+const ActivityInvite = require('../models/ActivityInvite');
 const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
 // 获取所有活动代码（管理员）
@@ -246,6 +247,140 @@ router.get('/users/all', authMiddleware, activityAdminMiddleware, async (req, re
   } catch (error) {
     console.error('获取用户列表错误:', error);
     res.status(500).json({ error: '获取用户列表失败' });
+  }
+});
+
+// ========== 活动邀请码管理 ==========
+
+// 生成活动邀请码
+router.post('/codes/:id/invite', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { maxUses } = req.body;
+
+    // 检查活动代码是否存在
+    const code = await ActivityCode.getById(id);
+    if (!code) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+
+    // 创建邀请码
+    const result = await ActivityInvite.create(id, req.user.id, maxUses || 1);
+    const invite = await ActivityInvite.getByCode(ActivityInvite.generateInviteCode());
+
+    // 生成邀请链接（包含完整 URL）
+    const baseUrl = process.env.BASE_URL || 'https://autogame.sijunsi.com';
+    const inviteUrl = `${baseUrl}/invite/${invite.invite_code}`;
+
+    res.json({
+      message: '邀请码生成成功',
+      invite: {
+        id: result.lastInsertRowid,
+        code: invite.invite_code,
+        activityName: invite.activity_name,
+        activityCode: invite.activity_code,
+        inviteUrl,
+        maxUses: invite.max_uses,
+        createdAt: invite.created_at
+      }
+    });
+  } catch (error) {
+    console.error('生成邀请码错误:', error);
+    res.status(500).json({ error: '生成邀请码失败：' + error.message });
+  }
+});
+
+// 获取活动的所有邀请码
+router.get('/codes/:id/invites', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invites = await ActivityInvite.getByActivityCodeId(id);
+    res.json({ invites });
+  } catch (error) {
+    console.error('获取邀请码列表错误:', error);
+    res.status(500).json({ error: '获取邀请码列表失败：' + error.message });
+  }
+});
+
+// 删除邀请码
+router.delete('/invites/:code', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { code } = req.params;
+    await ActivityInvite.delete(code);
+    res.json({ message: '邀请码已删除' });
+  } catch (error) {
+    console.error('删除邀请码错误:', error);
+    res.status(500).json({ error: '删除邀请码失败：' + error.message });
+  }
+});
+
+// 验证邀请码（公开接口，用于扫码后检查）
+router.get('/invite/:code/verify', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const invite = await ActivityInvite.getByCode(code);
+
+    if (!invite) {
+      return res.status(404).json({ error: '邀请码不存在' });
+    }
+
+    if (invite.is_used === 1) {
+      return res.status(400).json({ error: '邀请码已被使用' });
+    }
+
+    res.json({
+      valid: true,
+      activity: {
+        code: invite.activity_code,
+        name: invite.activity_name,
+        creator: invite.creator_name,
+        creatorEmail: invite.creator_email
+      }
+    });
+  } catch (error) {
+    console.error('验证邀请码错误:', error);
+    res.status(500).json({ error: '验证邀请码失败：' + error.message });
+  }
+});
+
+// 使用邀请码（需要登录）
+router.post('/invite/:code/use', authMiddleware, async (req, res) => {
+  try {
+    const { code } = req.params;
+    const invite = await ActivityInvite.getByCode(code);
+
+    if (!invite) {
+      return res.status(404).json({ error: '邀请码不存在' });
+    }
+
+    if (invite.is_used === 1) {
+      return res.status(400).json({ error: '邀请码已被使用' });
+    }
+
+    // 检查用户是否已加入该活动
+    const existingMembers = await ActivityCode.getUsersByCodeId(invite.activity_code_id);
+    const isAlreadyMember = existingMembers.some(m => m.id === req.user.id);
+
+    if (isAlreadyMember) {
+      return res.status(400).json({ error: '你已经是该活动的成员' });
+    }
+
+    // 添加用户到活动
+    await ActivityCode.addUser(invite.activity_code_id, req.user.id);
+
+    // 标记邀请码为已使用
+    await ActivityInvite.markAsUsed(code, req.user.id);
+
+    res.json({
+      message: '加入活动成功',
+      activity: {
+        code: invite.activity_code,
+        name: invite.activity_name
+      }
+    });
+  } catch (error) {
+    console.error('使用邀请码错误:', error);
+    res.status(500).json({ error: '使用邀请码失败：' + error.message });
   }
 });
 

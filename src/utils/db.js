@@ -182,11 +182,28 @@ async function initPostgres() {
       )
     `);
 
+    // 创建活动邀请码表
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS activity_invites (
+        id SERIAL PRIMARY KEY,
+        activity_code_id INTEGER REFERENCES activity_codes(id) ON DELETE CASCADE,
+        invite_code VARCHAR(50) UNIQUE NOT NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        max_uses INTEGER DEFAULT 1,
+        is_used BOOLEAN DEFAULT false,
+        used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // 创建索引
     await db.query(`CREATE INDEX IF NOT EXISTS idx_availability_user_date ON availability(user_id, date)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_availability_activity_code ON availability(activity_code)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_activities_date_slot ON activities(date, time_slot, status)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_members_activity ON activity_members(activity_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_invites_code ON activity_invites(invite_code)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_activity_invites_activity_code ON activity_invites(activity_code_id)`);
 
     console.log('✓ PostgreSQL 数据库初始化完成');
 

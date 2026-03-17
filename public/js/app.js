@@ -212,13 +212,21 @@ async function handleRegister(event) {
   const email = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
   const role = document.getElementById('registerRole').value;
-  const inviteCode = document.getElementById('registerInviteCode').value.trim();
+  let inviteCode = document.getElementById('registerInviteCode').value.trim();
+  
+  // 检查是否有活动邀请码重定向
+  const activityInviteCode = localStorage.getItem('activity_invite_code');
 
-  if (!inviteCode) {
+  if (!inviteCode && !activityInviteCode) {
     const errorEl = document.getElementById('registerError');
     errorEl.textContent = '邀请码不能为空';
     errorEl.classList.remove('d-none');
     return;
+  }
+  
+  // 优先使用活动邀请码
+  if (activityInviteCode) {
+    inviteCode = activityInviteCode;
   }
 
   try {
@@ -230,6 +238,9 @@ async function handleRegister(event) {
     userToken = data.token;
     currentUser = data.user;
     localStorage.setItem('token', data.token);
+    
+    // 清除活动邀请码重定向
+    localStorage.removeItem('activity_invite_code');
 
     showToast('注册成功！', 'success');
     showMainApp();
@@ -858,6 +869,9 @@ async function loadActivityCodes() {
             <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
               <i class="bi bi-sliders"></i>
             </button>
+            <button class="btn btn-outline-success" onclick="showActivityInviteModal(${code.id}, '${code.name}')" title="邀请二维码">
+              <i class="bi bi-qr-code"></i>
+            </button>
             <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
               <i class="bi bi-trash"></i>
             </button>
@@ -865,9 +879,9 @@ async function loadActivityCodes() {
         </td>
       </tr>
     `).join('');
-    
+
     if (codes.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无活动代码</td></tr>';
     }
   } catch (error) {
     showToast('加载活动代码失败：' + error.message, 'danger');
@@ -1824,7 +1838,13 @@ function checkUrlForInviteCode() {
 }
 
 // 初始化时检查 URL 参数
-const originalDOMContentLoaded = document.addEventListener('DOMContentLoaded', () => {
+const originalDOMContentLoaded = document.addEventListener('DOMContentLoaded', async () => {
+  // 先检查是否是邀请页面
+  const isInvitePage = await handleInvitePage();
+  if (isInvitePage) {
+    return; // 邀请页面不需要执行其他初始化
+  }
+  
   checkAuth();
   setupEventListeners();
   checkUrlForInviteCode();
@@ -1968,9 +1988,227 @@ async function saveProfile() {
 
 // 更新导航栏用户信息
 function updateUserInfo() {
-  const roleText = currentUser.role === 'super_admin' ? '超级管理员' 
+  const roleText = currentUser.role === 'super_admin' ? '超级管理员'
     : currentUser.role === 'activity_admin' ? '活动管理员'
     : currentUser.isSeed ? '种子选手' : '用户';
-  
+
   document.getElementById('userInfo').textContent = `${currentUser.name} (${roleText})`;
+}
+
+// ========== 活动邀请码管理 ==========
+
+let currentInviteCodeId = null;
+let currentInviteCode = null;
+
+// 显示活动邀请码管理模态框
+async function showActivityInviteModal(codeId, codeName) {
+  currentInviteCodeId = codeId;
+  currentInviteCode = null;
+  document.getElementById('activityInviteModalTitle')?.textContent = `活动邀请码管理 - ${codeName}`;
+  
+  const modal = new bootstrap.Modal(document.getElementById('activityInviteModal'));
+  modal.show();
+  
+  // 加载邀请码列表
+  await loadActivityInvites();
+}
+
+// 加载活动邀请码列表
+async function loadActivityInvites() {
+  if (!currentInviteCodeId) return;
+  
+  try {
+    const data = await apiRequest(`/activity/codes/${currentInviteCodeId}/invites`);
+    const invites = data.invites || [];
+    
+    const tbody = document.getElementById('activityInviteList');
+    if (invites.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">暂无邀请码，点击上方按钮生成</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = invites.map(inv => `
+      <tr>
+        <td><code class="text-primary">${inv.invite_code}</code></td>
+        <td>${inv.is_used === 1 ? '<span class="badge bg-secondary">已使用</span>' : '<span class="badge bg-success">未使用</span>'}</td>
+        <td><small class="text-muted">${formatDateCN(inv.created_at)}</small></td>
+        <td>
+          ${inv.is_used === 0 ? `
+            <button class="btn btn-sm btn-outline-primary" onclick="selectInvite('${inv.invite_code}')">
+              <i class="bi bi-check"></i> 使用
+            </button>
+          ` : '<span class="badge bg-secondary">-</span>'}
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteInvite('${inv.invite_code}')">
+            <i class="bi bi-trash"></i> 删除
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('加载邀请码列表失败:', error);
+    showToast('加载失败：' + error.message, 'danger');
+  }
+}
+
+// 生成活动邀请码
+async function generateActivityInvite() {
+  if (!currentInviteCodeId) return;
+  
+  try {
+    const data = await apiRequest(`/activity/codes/${currentInviteCodeId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ maxUses: 1 })
+    });
+    
+    showToast('邀请码生成成功', 'success');
+    await loadActivityInvites();
+    
+    // 自动选中新生成的邀请码
+    if (data.invite && data.invite.code) {
+      selectInvite(data.invite.code);
+    }
+  } catch (error) {
+    console.error('生成邀请码失败:', error);
+    showToast('生成失败：' + error.message, 'danger');
+  }
+}
+
+// 选择邀请码（显示二维码）
+function selectInvite(code) {
+  currentInviteCode = code;
+  document.getElementById('inviteUrlInput').value = `${window.location.origin}/invite/${code}`;
+  
+  // 生成二维码
+  const container = document.getElementById('activityQrcodeContainer');
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: `${window.location.origin}/invite/${code}`,
+    width: 128,
+    height: 128,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  
+  showToast('已选择邀请码', 'success');
+}
+
+// 复制邀请链接
+function copyInviteUrl() {
+  const input = document.getElementById('inviteUrlInput');
+  input.select();
+  document.execCommand('copy');
+  showToast('邀请链接已复制', 'success');
+}
+
+// 删除邀请码
+async function deleteInvite(code) {
+  if (!confirm('确定要删除该邀请码吗？')) return;
+  
+  try {
+    await apiRequest(`/activity/invites/${code}`, { method: 'DELETE' });
+    showToast('邀请码已删除', 'success');
+    
+    if (currentInviteCode === code) {
+      currentInviteCode = null;
+      document.getElementById('activityQrcodeContainer').innerHTML = '';
+      document.getElementById('inviteUrlInput').value = '';
+    }
+    
+    await loadActivityInvites();
+  } catch (error) {
+    showToast('删除失败：' + error.message, 'danger');
+  }
+}
+
+// ========== 邀请页面（扫码后） ==========
+
+let inviteCodeFromUrl = null;
+
+// 处理邀请页面
+async function handleInvitePage() {
+  const path = window.location.pathname;
+  const match = path.match(/^\/invite\/([A-Z0-9-]+)$/);
+  
+  if (!match) {
+    return false;
+  }
+  
+  inviteCodeFromUrl = match[1];
+  document.getElementById('navbar').style.display = 'none';
+  document.getElementById('authPage').classList.add('d-none');
+  document.querySelectorAll('.page-content').forEach(page => {
+    page.classList.add('d-none');
+  });
+  document.getElementById('invitePage').classList.remove('d-none');
+  
+  // 验证邀请码
+  await verifyInviteCode(inviteCodeFromUrl);
+  
+  return true;
+}
+
+// 验证邀请码
+async function verifyInviteCode(code) {
+  try {
+    const data = await apiRequest(`/activity/invite/${code}/verify`);
+    
+    document.getElementById('inviteLoading').classList.add('d-none');
+    document.getElementById('inviteSuccess').classList.remove('d-none');
+    document.getElementById('inviteActivityName').textContent = data.activity.name;
+    document.getElementById('inviteActivityInfo').textContent = `活动代码：${data.activity.code} | 创建者：${data.activity.creator}`;
+    
+    // 检查登录状态
+    if (userToken && currentUser) {
+      // 已登录，直接加入
+      await useInviteCode(code);
+    } else {
+      // 未登录，显示登录/注册按钮
+      document.getElementById('needLogin').classList.remove('d-none');
+    }
+  } catch (error) {
+    document.getElementById('inviteLoading').classList.add('d-none');
+    document.getElementById('inviteError').classList.remove('d-none');
+    document.getElementById('inviteErrorMessage').textContent = error.message || '邀请码无效或已被使用';
+  }
+}
+
+// 使用邀请码
+async function useInviteCode(code) {
+  try {
+    const data = await apiRequest(`/activity/invite/${code}/use`, {
+      method: 'POST'
+    });
+    
+    document.getElementById('needLogin').classList.add('d-none');
+    document.getElementById('joinSuccess').classList.remove('d-none');
+  } catch (error) {
+    showToast('加入失败：' + error.message, 'danger');
+  }
+}
+
+// 跳转到登录
+function goToLogin() {
+  localStorage.setItem('invite_code_redirect', inviteCodeFromUrl);
+  showLogin();
+}
+
+// 跳转到注册
+function goToRegister() {
+  // 存储活动邀请码，注册时自动使用
+  localStorage.setItem('activity_invite_code', inviteCodeFromUrl);
+  showRegister();
+  // 自动填充邀请码
+  setTimeout(() => {
+    const roleSelect = document.getElementById('registerRole');
+    if (roleSelect) {
+      roleSelect.value = 'user';
+      toggleInviteCodeField();
+    }
+    // 填充活动邀请码到注册表单
+    const inviteCodeInput = document.getElementById('registerInviteCode');
+    if (inviteCodeInput) {
+      inviteCodeInput.value = inviteCodeFromUrl;
+    }
+  }, 100);
 }
