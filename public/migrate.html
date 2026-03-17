@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据库迁移 - 文体活动组队系统</title>
+  <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-database"></i> 数据库迁移工具</h5>
+          </div>
+          <div class="card-body">
+            <div id="status" class="alert alert-info">
+              <div class="spinner-border spinner-border-sm" role="status"></div>
+              正在检查数据库状态...
+            </div>
+            
+            <div id="result" class="d-none">
+              <h6>数据库信息</h6>
+              <pre id="dbInfo" class="bg-light p-3 rounded"></pre>
+              
+              <div id="missingTables" class="alert alert-warning d-none">
+                <strong>⚠️ 缺少以下表：</strong>
+                <ul id="missingTableList" class="mb-0"></ul>
+              </div>
+              
+              <button id="migrateBtn" class="btn btn-primary" onclick="runMigration()">
+                <i class="bi bi-arrow-repeat"></i> 执行数据库迁移
+              </button>
+              
+              <div id="migrateResult" class="mt-3 d-none"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('token');
+    
+    async function checkDbStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/auth/diagnostic`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const data = await response.json();
+        
+        document.getElementById('status').classList.add('d-none');
+        document.getElementById('result').classList.remove('d-none');
+        document.getElementById('dbInfo').textContent = JSON.stringify(data, null, 2);
+        
+        // 检查缺少的表
+        const requiredTables = ['users', 'activity_codes', 'activity_invites'];
+        const missing = requiredTables.filter(t => !data.tables.includes(t));
+        
+        if (missing.length > 0) {
+          document.getElementById('missingTables').classList.remove('d-none');
+          document.getElementById('missingTableList').innerHTML = missing.map(t => `<li>${t}</li>`).join('');
+        }
+        
+        // 如果没有 token 且需要迁移，提示登录
+        if (!token && missing.length > 0) {
+          document.getElementById('migrateBtn').disabled = true;
+          document.getElementById('migrateBtn').innerHTML = '<i class="bi bi-lock"></i> 请先登录（需要管理员权限）';
+        }
+      } catch (error) {
+        document.getElementById('status').className = 'alert alert-danger';
+        document.getElementById('status').innerHTML = `<i class="bi bi-x-circle"></i> 检查失败：${error.message}`;
+      }
+    }
+    
+    async function runMigration() {
+      const btn = document.getElementById('migrateBtn');
+      const result = document.getElementById('migrateResult');
+      
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner-border spinner-border-sm"></div> 正在迁移...';
+      result.className = 'alert alert-info mt-3';
+      result.textContent = '正在执行数据库迁移，请稍候...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/auth/migrate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          result.className = 'alert alert-success mt-3';
+          result.innerHTML = `<i class="bi bi-check-circle"></i> ${data.message}`;
+          btn.innerHTML = '<i class="bi bi-check"></i> 迁移完成';
+          
+          // 3 秒后刷新页面
+          setTimeout(() => location.reload(), 3000);
+        } else {
+          throw new Error(data.error || '迁移失败');
+        }
+      } catch (error) {
+        result.className = 'alert alert-danger mt-3';
+        result.innerHTML = `<i class="bi bi-x-circle"></i> 迁移失败：${error.message}`;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 重试迁移';
+      }
+    }
+    
+    // 页面加载时检查
+    checkDbStatus();
+  </script>
+</body>
+</html>
