@@ -2207,17 +2207,23 @@ function goToRegister() {
   document.getElementById('invitePage').classList.add('d-none');
   document.getElementById('authPage').classList.remove('d-none');
   showRegister();
-  // 自动填充邀请码
+  // 自动填充邀请码，并隐藏角色选择（只能注册为普通用户）
   setTimeout(() => {
     const roleSelect = document.getElementById('registerRole');
+    const inviteCodeField = document.getElementById('inviteCodeField');
     if (roleSelect) {
       roleSelect.value = 'user';
+      roleSelect.disabled = true; // 禁用角色选择
       toggleInviteCodeField();
     }
-    // 填充活动邀请码到注册表单
+    if (inviteCodeField) {
+      inviteCodeField.classList.add('d-none'); // 隐藏邀请码字段
+    }
+    // 填充活动邀请码到注册表单（隐藏字段）
     const inviteCodeInput = document.getElementById('registerInviteCode');
     if (inviteCodeInput) {
       inviteCodeInput.value = inviteCodeFromUrl;
+      inviteCodeInput.parentElement.classList.add('d-none'); // 隐藏输入框
     }
   }, 100);
 }

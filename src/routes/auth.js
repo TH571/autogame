@@ -54,7 +54,7 @@ router.post('/register', async (req, res) => {
     }
 
     // 检查邮箱是否已存在
-    const existingUser = User.findByEmail(email);
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: '该邮箱已被注册' });
     }
@@ -64,62 +64,84 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: '密码长度至少为 6 位' });
     }
 
-    // 角色验证
-    const validRoles = ['activity_admin', 'user'];
-    const userRole = role || 'user';
-    if (!validRoles.includes(userRole)) {
-      return res.status(400).json({ error: '无效的角色类型' });
-    }
-
-    // 验证邀请码
-    const inviteData = User.verifyInviteCode(inviteCode);
-    if (!inviteData) {
-      return res.status(400).json({ error: '无效的邀请码' });
-    }
+    // 检查是否是活动邀请码（INV-开头的格式）
+    const isActivityInvite = inviteCode.startsWith('INV-');
     
-    // 检查邀请码类型是否匹配
-    const inviter = User.findById(inviteData.admin_id);
-    if (userRole === 'activity_admin' && inviter.role !== 'super_admin') {
-      return res.status(400).json({ error: '活动管理员注册需要超级管理员邀请码' });
-    }
-    if (userRole === 'user' && inviter.role !== 'activity_admin' && inviter.role !== 'super_admin') {
-      return res.status(400).json({ error: '普通用户注册需要活动管理员邀请码' });
-    }
+    // 活动邀请码只能注册为普通用户
+    let userRole = 'user';
+    if (isActivityInvite) {
+      // 验证活动邀请码
+      const ActivityInvite = require('../models/ActivityInvite');
+      const activityInvite = await ActivityInvite.getByCode(inviteCode);
+      
+      if (!activityInvite) {
+        return res.status(400).json({ error: '无效的活动邀请码' });
+      }
+      
+      if (activityInvite.is_used === 1) {
+        return res.status(400).json({ error: '该邀请码已被使用' });
+      }
+      
+      // 强制设置为普通用户
+      userRole = 'user';
+    } else {
+      // 普通注册邀请码的验证逻辑
+      const validRoles = ['activity_admin', 'user'];
+      if (role && !validRoles.includes(role)) {
+        return res.status(400).json({ error: '无效的角色类型' });
+      }
+      userRole = role || 'user';
 
-    let activityAdminId = inviteData.admin_id;
-    
-    // 活动管理员注册时，超级管理员作为上级
-    if (userRole === 'activity_admin') {
-      activityAdminId = inviteData.admin_id;
+      // 验证邀请码
+      const inviteData = User.verifyInviteCode(inviteCode);
+      if (!inviteData) {
+        return res.status(400).json({ error: '无效的邀请码' });
+      }
+
+      // 检查邀请码类型是否匹配
+      const inviter = await User.findById(inviteData.admin_id);
+      if (userRole === 'activity_admin' && inviter.role !== 'super_admin') {
+        return res.status(400).json({ error: '活动管理员注册需要超级管理员邀请码' });
+      }
+      if (userRole === 'user' && inviter.role !== 'activity_admin' && inviter.role !== 'super_admin') {
+        return res.status(400).json({ error: '普通用户注册需要活动管理员邀请码' });
+      }
     }
 
     // 加密密码
     const hashedPassword = bcrypt.hashSync(password, 10);
 
-    // 创建用户
-    const result = User.create(email, hashedPassword, name, userRole, activityAdminId);
-    
-    // 标记邀请码为已使用
-    User.markInviteCodeAsUsed(inviteCode, result.lastInsertRowid);
-    
-    // 为活动管理员生成邀请码
-    if (userRole === 'activity_admin') {
-      const newInviteCode = User.generateInviteCode(result.lastInsertRowid);
-      console.log(`为新活动管理员 ${name} 生成邀请码：${newInviteCode}`);
-    }
-    
+    // 创建用户（活动邀请码注册时 activityAdminId 为 null）
+    const activityAdminId = isActivityInvite ? null : req.user.id;
+    const result = await User.create(email, hashedPassword, name, userRole, activityAdminId);
+
     // 生成 token
     const token = jwt.sign(
-      { 
-        id: result.lastInsertRowid, 
-        email, 
+      {
+        id: result.lastInsertRowid,
+        email,
         name,
         role: userRole,
-        isSeed: false 
+        isSeed: false
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
+
+    // 如果是活动邀请码注册，将用户添加到活动代码中
+    if (isActivityInvite) {
+      const ActivityInvite = require('../models/ActivityInvite');
+      const ActivityCode = require('../models/ActivityCode');
+      const activityInvite = await ActivityInvite.getByCode(inviteCode);
+      
+      if (activityInvite) {
+        // 将用户添加到活动代码
+        await ActivityCode.addUser(activityInvite.activity_code_id, result.lastInsertRowid);
+        
+        // 标记邀请码为已使用
+        await ActivityInvite.markAsUsed(inviteCode, result.lastInsertRowid);
+      }
+    }
 
     res.status(201).json({
       message: '注册成功',
