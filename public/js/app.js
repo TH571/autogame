@@ -2004,7 +2004,8 @@ let currentActivityInviteCode = null;
 async function showActivityInviteModal(codeId, codeName) {
   currentActivityInviteCodeId = codeId;
   currentActivityInviteCode = null;
-  document.getElementById('activityInviteModalTitle')?.textContent = `活动邀请码管理 - ${codeName}`;
+  const titleEl = document.getElementById('activityInviteModalTitle');
+  if (titleEl) titleEl.textContent = `活动邀请码管理 - ${codeName}`;
   
   const modal = new bootstrap.Modal(document.getElementById('activityInviteModal'));
   modal.show();
