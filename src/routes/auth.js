@@ -312,24 +312,47 @@ router.post('/avatar', authMiddleware, upload.single('avatar'), async (req, res)
 // 诊断 API - 检查数据库状态
 router.get('/diagnostic', async (req, res) => {
   try {
-    const User = require('../models/User');
     const { usePostgres } = require('../utils/database');
+    const db = require('../utils/db');
     
-    const users = await User.findAll();
-    const adminUser = users.find(u => u.role === 'super_admin');
-    const activityAdmin = users.find(u => u.role === 'activity_admin');
+    let dbStatus = 'unknown';
+    let tables = [];
+    let userCount = 0;
     
+    if (usePostgres) {
+      dbStatus = 'PostgreSQL';
+      const postgresDb = await db.getDb();
+      try {
+        const result = await postgresDb.query(`
+          SELECT table_name FROM information_schema.tables 
+          WHERE table_schema = 'public'
+        `);
+        tables = result.rows.map(r => r.table_name);
+        
+        const userResult = await postgresDb.query('SELECT COUNT(*) FROM users');
+        userCount = parseInt(userResult.rows[0]?.count) || 0;
+      } catch (err) {
+        dbStatus = 'PostgreSQL (连接错误：' + err.message + ')';
+      }
+    } else {
+      dbStatus = 'SQLite';
+      const sqliteDb = db.getDb();
+      tables = sqliteDb.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table'
+      `).all().map(t => t.name);
+      userCount = sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get().count;
+    }
+
     res.json({
-      database: usePostgres ? 'PostgreSQL' : 'SQLite',
-      totalUsers: users.length,
-      hasSuperAdmin: !!adminUser,
-      hasActivityAdmin: !!activityAdmin,
-      adminEmail: adminUser?.email,
+      database: dbStatus,
+      tables,
+      userCount,
       env: {
+        VERCEL: process.env.VERCEL || 'false',
+        POSTGRES_URL: process.env.POSTGRES_URL ? '已配置' : '未配置',
+        POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING ? '已配置' : '未配置',
         ADMIN_EMAIL: process.env.ADMIN_EMAIL || '未设置',
-        ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ? '已设置' : '未设置',
-        JWT_SECRET: process.env.JWT_SECRET ? '已设置' : '未设置',
-        POSTGRES_URL: process.env.POSTGRES_URL ? '已设置' : '未设置'
+        ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ? '已设置' : '未设置'
       }
     });
   } catch (error) {
