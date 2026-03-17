@@ -10,11 +10,10 @@ let client = null;
 async function getDb() {
   if (isVercel) {
     // Vercel Postgres - 使用 createClient 避免连接池问题
-    if (!client && process.env.POSTGRES_URL_NON_POOLING) {
+    if (!client) {
       try {
-        client = createClient({
-          connectionString: process.env.POSTGRES_URL_NON_POOLING
-        });
+        // 不使用参数，让 createClient 自动使用环境变量
+        client = createClient();
         await client.connect();
         console.log('[DB] Vercel Postgres 客户端已连接');
       } catch (error) {
@@ -22,7 +21,7 @@ async function getDb() {
         throw error;
       }
     }
-    return client || sql;
+    return client;
   } else {
     // 本地 SQLite（开发环境）
     const Database = require('better-sqlite3');
