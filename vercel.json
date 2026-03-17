@@ -16,6 +16,10 @@
       "dest": "src/app.js"
     },
     {
+      "src": "/invite/([A-Z0-9-]+)",
+      "dest": "src/app.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "public/$1"
     },
