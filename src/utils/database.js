@@ -3,8 +3,8 @@
  * 支持 SQLite（本地开发）和 PostgreSQL（Vercel 生产环境）
  */
 
-// 检查是否为 Vercel 环境
-const isVercel = process.env.VERCEL === '1' || process.env.POSTGRES_URL;
+// 检查是否为 Vercel 环境 - 使用 POSTGRES_URL_NON_POOLING 避免连接池问题
+const isVercel = process.env.VERCEL === '1' || process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
 
 let sqliteDb = null;
 let usePostgres = isVercel;
@@ -14,7 +14,7 @@ function getDb() {
   if (usePostgres) {
     return null; // PostgreSQL 使用 sql 对象直接查询
   }
-  
+
   if (!sqliteDb) {
     const Database = require('better-sqlite3');
     const path = require('path');
@@ -31,7 +31,7 @@ function getDb() {
     sqliteDb.pragma('foreign_keys = ON');
     sqliteDb.pragma('encoding = "UTF-8"');
   }
-  
+
   return sqliteDb;
 }
 
@@ -46,7 +46,7 @@ async function query(sql, params = []) {
       return stmt.run(...params);
     }
   }
-  
+
   const { sql: postgresSql } = require('@vercel/postgres');
   const formattedSql = sql.replace(/\?/g, () => {
     const param = params.shift();
