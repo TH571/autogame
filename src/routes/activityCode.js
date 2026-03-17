@@ -265,8 +265,7 @@ router.post('/codes/:id/invite', authMiddleware, activityAdminMiddleware, async 
     }
 
     // 创建邀请码
-    const result = await ActivityInvite.create(id, req.user.id, maxUses || 1);
-    const invite = await ActivityInvite.getByCode(ActivityInvite.generateInviteCode());
+    const invite = await ActivityInvite.create(id, req.user.id, maxUses || 1);
 
     // 生成邀请链接（包含完整 URL）
     const baseUrl = process.env.BASE_URL || 'https://autogame.sijunsi.com';
@@ -275,7 +274,7 @@ router.post('/codes/:id/invite', authMiddleware, activityAdminMiddleware, async 
     res.json({
       message: '邀请码生成成功',
       invite: {
-        id: result.lastInsertRowid,
+        id: invite.id,
         code: invite.invite_code,
         activityName: invite.activity_name,
         activityCode: invite.activity_code,

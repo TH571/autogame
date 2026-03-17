@@ -5,10 +5,13 @@ class ActivityInviteModel {
   // 创建邀请码
   async create(activityCodeId, createdBy, maxUses = 1) {
     const inviteCode = this.generateInviteCode();
-    return await db.run(`
+    const result = await db.run(`
       INSERT INTO activity_invites (activity_code_id, invite_code, created_by, max_uses)
       VALUES (?, ?, ?, ?)
     `, [activityCodeId, inviteCode, createdBy, maxUses]);
+    
+    // 返回完整的邀请码信息
+    return await this.getByCode(inviteCode);
   }
 
   // 根据邀请码查找
