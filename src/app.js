@@ -40,13 +40,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: '文体活动组队系统运行中' });
 });
 
-// 前端路由 - 所有其他请求返回 index.html
-app.get('/{*path}', (req, res) => {
+// 邀请页面路由（必须在通配符路由之前）
+app.get('/invite/:code', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// 邀请页面路由
-app.get('/invite/:code', (req, res) => {
+// 前端路由 - 所有其他请求返回 index.html
+app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
