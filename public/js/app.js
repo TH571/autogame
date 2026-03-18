@@ -828,6 +828,13 @@ async function loadActivityManagement() {
           <span class="badge bg-primary">${code.user_count || 0}用户</span>
           <span class="badge bg-warning text-dark">${code.seed_count || 0}种子</span>
         </td>
+        <td>
+          <small>
+            <div class="text-truncate" style="max-width: 100px;" title="${code.creator_name || '未知'}">
+              <i class="bi bi-person-circle"></i> ${code.creator_name || '未知'}
+            </div>
+          </small>
+        </td>
         <td><small class="text-muted">${formatDateCN(code.created_at)}</small></td>
         <td>
           <div class="btn-group btn-group-sm">
