@@ -515,7 +515,7 @@ async function submitAvailability() {
 // 加载活动
 async function loadActivities() {
   try {
-    // 我的活动
+    // 我的活动 - 月历表形式
     const myData = await apiRequest('/team/activities/my');
     const myContainer = document.getElementById('myActivitiesList');
 
@@ -528,24 +528,123 @@ async function loadActivities() {
         </div>
       `;
     } else {
-      myContainer.innerHTML = myData.activities.map(a => `
-        <div class="card activity-card ${a.status}">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <h6 class="mb-1">
-                  <i class="bi bi-calendar3"></i> ${a.date}
-                  <span class="badge badge-time badge-${getTimeSlotClass(a.timeSlot)}">${a.timeSlotText}</span>
-                </h6>
-                <small class="text-muted">状态：${getStatusText(a.status)}</small>
-              </div>
-              <span class="badge bg-${a.status === 'confirmed' ? 'success' : 'secondary'}">
-                ${getStatusText(a.status)}
-              </span>
+      // 按日期分组活动
+      const activitiesByDate = {};
+      myData.activities.forEach(a => {
+        if (!activitiesByDate[a.date]) {
+          activitiesByDate[a.date] = { 1: null, 2: null, 3: null };
+        }
+        activitiesByDate[a.date][a.time_slot] = a;
+      });
+
+      // 获取当月第一天（以第一个活动日期所在月份为准）
+      const firstDate = Object.keys(activitiesByDate).sort()[0];
+      const baseDate = new Date(firstDate);
+      const year = baseDate.getFullYear();
+      const month = baseDate.getMonth();
+
+      // 获取当月第一天和最后一天
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      const totalDays = lastDayOfMonth.getDate();
+      const startDayOfWeek = firstDayOfMonth.getDay(); // 0=周日
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // 生成月历表
+      let calendarHTML = `
+        <div class="card shadow-sm">
+          <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> ${year}年${month + 1}月 我的活动</h5>
+            <span class="badge bg-light text-dark">${myData.activities.length} 个活动</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-bordered calendar-table mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="text-center">周日</th>
+                    <th class="text-center">周一</th>
+                    <th class="text-center">周二</th>
+                    <th class="text-center">周三</th>
+                    <th class="text-center">周四</th>
+                    <th class="text-center">周五</th>
+                    <th class="text-center">周六</th>
+                  </tr>
+                </thead>
+                <tbody>
+      `;
+
+      // 生成日历行（6 行足够显示任何月份）
+      let day = 1;
+      for (let row = 0; row < 6; row++) {
+        calendarHTML += '<tr>';
+
+        for (let col = 0; col < 7; col++) {
+          let cellContent = '';
+          let cellClass = '';
+
+          // 第一行前面的空白格
+          if (row === 0 && col < startDayOfWeek) {
+            cellClass = 'bg-light';
+            cellContent = '';
+          }
+          // 超出当月日期
+          else if (day > totalDays) {
+            cellClass = 'bg-light';
+            cellContent = '';
+          }
+          // 正常日期格
+          else {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isToday = dateStr === today;
+            const dayActivities = activitiesByDate[dateStr];
+
+            cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''}">${day}</div>`;
+
+            if (dayActivities) {
+              // 下午活动
+              if (dayActivities[1]) {
+                cellContent += renderMyActivity(dayActivities[1], '下午');
+              }
+              // 晚上活动
+              if (dayActivities[2]) {
+                cellContent += renderMyActivity(dayActivities[2], '晚上');
+              }
+              // 全天活动
+              if (dayActivities[3]) {
+                cellContent += renderMyActivity(dayActivities[3], '全天');
+              }
+            }
+
+            if (isToday) {
+              cellClass = 'table-info';
+            }
+
+            day++;
+          }
+
+          calendarHTML += `<td class="${cellClass}" style="min-height: 120px;">${cellContent}</td>`;
+        }
+
+        calendarHTML += '</tr>';
+
+        // 如果已经显示完所有日期，提前结束
+        if (day > totalDays) break;
+      }
+
+      calendarHTML += `
+                </tbody>
+              </table>
             </div>
           </div>
+          <div class="card-footer text-muted small">
+            <i class="bi bi-info-circle"></i> 绿色卡片表示您已加入的活动
+          </div>
         </div>
-      `).join('');
+      `;
+
+      myContainer.innerHTML = calendarHTML;
     }
 
     // 所有活动 - 月历表形式
@@ -687,6 +786,28 @@ async function loadActivities() {
   } catch (error) {
     showToast('加载活动失败：' + error.message, 'danger');
   }
+}
+
+// 渲染我的活动卡片
+function renderMyActivity(activity, timeSlotText) {
+  const status = activity.status || 'confirmed';
+  
+  let html = `
+    <div class="card mb-1 shadow-sm border-0" style="font-size: 0.65rem;">
+      <div class="card-body p-1">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="badge bg-primary">${timeSlotText}</span>
+          <span class="badge bg-${status === 'confirmed' ? 'success' : 'secondary'}">
+            ${status === 'confirmed' ? '✓' : '○'}
+          </span>
+        </div>
+        <div class="text-muted" style="font-size: 0.6rem;">
+          <i class="bi bi-people-fill"></i> 已加入
+        </div>
+      </div>
+    </div>
+  `;
+  return html;
 }
 
 // 渲染日历活动卡片
