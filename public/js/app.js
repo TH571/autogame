@@ -337,6 +337,8 @@ async function loadAvailabilityDates() {
     // 传递活动代码参数到 API
     const datesData = await apiRequest(`/availability/dates/next14?activityCode=${encodeURIComponent(activityCode)}`);
 
+    console.log('[loadAvailabilityDates] API 返回数据:', datesData.dates.length, '天');
+
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
     selectedAvailabilities = [];
@@ -351,6 +353,8 @@ async function loadAvailabilityDates() {
       const fullDay = item.slots[3];
       const hasAfternoon = afternoon.exists || fullDay.exists;
       const hasEvening = evening.exists || fullDay.exists;
+
+      console.log(`[loadAvailabilityDates] ${item.date}: 下午=${hasAfternoon ? '✓' : '✗'}, 晚上=${hasEvening ? '✓' : '✗'}`);
 
       tr.innerHTML = `
         <td>${item.date}</td>
@@ -380,8 +384,10 @@ async function loadAvailabilityDates() {
       if (hasAfternoon) selectedAvailabilities.push({ date: item.date, timeSlot: 1, isLocked: afternoon.isLocked || fullDay.isLocked });
       if (hasEvening) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked || fullDay.isLocked });
     });
+
+    console.log('[loadAvailabilityDates] selectedAvailabilities 数量:', selectedAvailabilities.length);
   } catch (error) {
-    console.error('加载日期列表错误:', error);
+    console.error('[loadAvailabilityDates] 错误:', error);
     showToast('加载日期失败：' + error.message, 'danger');
   }
 }
@@ -470,10 +476,18 @@ async function submitAvailability() {
 
     console.log('[提交申报] 返回数据:', data);
 
+    // 构建详细消息
     let msg = data.message || '申报成功';
-    if (data.regretPeriodCount) {
-      msg += ` - ${data.regretPeriodCount}条在 24 小时后悔期内`;
+    const details = [];
+    if (data.addedCount > 0) details.push(`添加 ${data.addedCount} 条`);
+    if (data.deletedCount > 0) details.push(`删除 ${data.deletedCount} 条`);
+    if (details.length > 0) {
+      msg = details.join('，');
     }
+    if (data.regretPeriodCount) {
+      msg += `（${data.regretPeriodCount} 条在后悔期内）`;
+    }
+
     showToast(msg, 'success');
 
     // 保持当前选中的活动代码，重新加载申报数据

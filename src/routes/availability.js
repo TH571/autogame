@@ -103,7 +103,7 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// 批量提交可用时间
+// 批量提交可用时间（同步用户的所有申报，自动添加或删除）
 router.post('/batch', authMiddleware, async (req, res) => {
   try {
     const { availabilities, activityCode } = req.body;
@@ -112,8 +112,8 @@ router.post('/batch', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: '活动代码为必填项' });
     }
 
-    if (!Array.isArray(availabilities) || availabilities.length === 0) {
-      return res.status(400).json({ error: '可用时间列表不能为空' });
+    if (!Array.isArray(availabilities)) {
+      return res.status(400).json({ error: '可用时间列表必须为数组' });
     }
 
     // 检查用户是否在该活动代码中
@@ -128,11 +128,28 @@ router.post('/batch', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 
-    const validAvailabilities = [];
+    // 获取用户当前在该活动代码中的所有申报
+    const existingAvailabilities = await Availability.getByUserAndCode(req.user.id, activityCode);
+    const existingMap = new Map();
+    existingAvailabilities.forEach(av => {
+      const key = `${av.date}-${av.time_slot}`;
+      existingMap.set(key, av);
+    });
+
+    // 处理用户提交的新申报
+    const newAvailabilities = [];
     const errors = [];
     const regretPeriodCount = { count: 0, total: availabilities.length };
 
     for (const av of availabilities) {
+      const key = `${av.date}-${av.timeSlot}`;
+      
+      // 如果已经存在，跳过
+      if (existingMap.has(key)) {
+        existingMap.delete(key);
+        continue;
+      }
+
       // 验证日期格式
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(av.date)) {
@@ -162,25 +179,52 @@ router.post('/batch', authMiddleware, async (req, res) => {
         regretPeriodCount.count++;
       }
 
-      validAvailabilities.push({
+      newAvailabilities.push({
         date: av.date,
         timeSlot: av.timeSlot,
         activityCode
       });
     }
 
-    if (validAvailabilities.length > 0) {
-      await Availability.addBatch(req.user.id, validAvailabilities);
+    // 添加新申报
+    if (newAvailabilities.length > 0) {
+      await Availability.addBatch(req.user.id, newAvailabilities);
     }
 
-    let message = `成功提交 ${validAvailabilities.length} 条申报`;
+    // 删除用户取消勾选的申报（剩余的 existingMap 中的记录）
+    const deletedCount = { count: 0 };
+    for (const [key, av] of existingMap) {
+      // 检查是否可以删除
+      const modifyStatus = await Availability.canModify(req.user.id, av.date, av.time_slot);
+      if (modifyStatus.canModify) {
+        await Availability.remove(req.user.id, av.date, av.time_slot);
+        deletedCount.count++;
+      } else {
+        errors.push(`${av.date} ${getTimeSlotText(av.time_slot)}: 已锁定，无法取消`);
+      }
+    }
+
+    // 构建返回消息
+    let message = '';
+    if (newAvailabilities.length > 0 && deletedCount.count > 0) {
+      message = `成功添加 ${newAvailabilities.length} 条，删除 ${deletedCount.count} 条`;
+    } else if (newAvailabilities.length > 0) {
+      message = `成功提交 ${newAvailabilities.length} 条申报`;
+    } else if (deletedCount.count > 0) {
+      message = `成功删除 ${deletedCount.count} 条申报`;
+    } else {
+      message = '没有变化';
+    }
+    
     if (regretPeriodCount.count > 0) {
       message += `（其中 ${regretPeriodCount.count} 条在 24 小时后悔期内，可随时修改）`;
     }
 
     res.json({
       message,
-      successCount: validAvailabilities.length,
+      successCount: newAvailabilities.length + deletedCount.count,
+      addedCount: newAvailabilities.length,
+      deletedCount: deletedCount.count,
       regretPeriodCount: regretPeriodCount.count > 0 ? regretPeriodCount.count : undefined,
       errors: errors.length > 0 ? errors : undefined
     });
