@@ -783,11 +783,6 @@ async function loadActivities() {
               }
               cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
             }
-            
-            // 有活动的日期添加背景色
-            if (!isToday) {
-              cellClass = 'table-success';
-            }
           }
 
           if (isToday) {
