@@ -1536,19 +1536,19 @@ async function loadActivityManagement() {
               <i class="bi bi-robot"></i> 组队
             </button>
             <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
-              <i class="bi bi-people"></i>
+              <i class="bi bi-people"></i> 用户
             </button>
             <button class="btn btn-outline-warning" onclick="showManageSeedsModal(${code.id}, '${code.name}')" title="管理种子">
-              <i class="bi bi-star"></i>
+              <i class="bi bi-star"></i> 种子
             </button>
             <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
-              <i class="bi bi-sliders"></i>
+              <i class="bi bi-sliders"></i> 规则
             </button>
             <button class="btn btn-outline-success" onclick="showActivityInviteModal(${code.id}, '${code.name}')" title="邀请二维码">
-              <i class="bi bi-qr-code"></i>
+              <i class="bi bi-qr-code"></i> 邀请
             </button>
             <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
-              <i class="bi bi-trash"></i>
+              <i class="bi bi-trash"></i> 删除
             </button>
           </div>
         </td>
@@ -1592,19 +1592,19 @@ async function loadActivityCodes() {
         <td>
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
-              <i class="bi bi-people"></i>
+              <i class="bi bi-people"></i> 用户
             </button>
             <button class="btn btn-outline-warning" onclick="showManageSeedsModal(${code.id}, '${code.name}')" title="管理种子">
-              <i class="bi bi-star"></i>
+              <i class="bi bi-star"></i> 种子
             </button>
             <button class="btn btn-outline-info" onclick="showEditRulesModal(${code.id}, '${code.name}')" title="编辑规则">
-              <i class="bi bi-sliders"></i>
+              <i class="bi bi-sliders"></i> 规则
             </button>
             <button class="btn btn-outline-success" onclick="showActivityInviteModal(${code.id}, '${code.name}')" title="邀请二维码">
-              <i class="bi bi-qr-code"></i>
+              <i class="bi bi-qr-code"></i> 邀请
             </button>
             <button class="btn btn-outline-danger" onclick="deleteActivityCode(${code.id})" title="删除">
-              <i class="bi bi-trash"></i>
+              <i class="bi bi-trash"></i> 删除
             </button>
           </div>
         </td>
