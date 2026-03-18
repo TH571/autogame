@@ -546,10 +546,11 @@ async function loadActivities() {
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
-      const today = new Date(todayStr);
-      const currentDayOfWeek = today.getDay(); // 0=周日
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - currentDayOfWeek); // 回到本周日
+      const today = todayStr; // 保持为字符串格式用于比较
+      const todayDate = new Date(todayStr); // 用于计算星期
+      const currentDayOfWeek = todayDate.getDay(); // 0=周日
+      const startDate = new Date(todayStr);
+      startDate.setDate(todayDate.getDate() - currentDayOfWeek); // 回到本周日
 
       // 计算结束日期：显示 35 天（5 周）
       const endDate = new Date(startDate);
@@ -690,10 +691,11 @@ async function loadActivities() {
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
-      const today = new Date(todayStr);
-      const currentDayOfWeek = today.getDay(); // 0=周日
-      const startDate = new Date(today);
-      startDate.setDate(today.getDate() - currentDayOfWeek); // 回到本周日
+      const today = todayStr; // 保持为字符串格式用于比较
+      const todayDate = new Date(todayStr); // 用于计算星期
+      const currentDayOfWeek = todayDate.getDay(); // 0=周日
+      const startDate = new Date(todayStr);
+      startDate.setDate(todayDate.getDate() - currentDayOfWeek); // 回到本周日
 
       // 计算结束日期：显示 35 天（5 周）
       const endDate = new Date(startDate);
