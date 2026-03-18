@@ -518,7 +518,7 @@ async function loadActivities() {
     // 我的活动
     const myData = await apiRequest('/team/activities/my');
     const myContainer = document.getElementById('myActivitiesList');
-    
+
     if (myData.activities.length === 0) {
       myContainer.innerHTML = `
         <div class="empty-state">
@@ -534,7 +534,7 @@ async function loadActivities() {
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="mb-1">
-                  <i class="bi bi-calendar3"></i> ${a.date} 
+                  <i class="bi bi-calendar3"></i> ${a.date}
                   <span class="badge badge-time badge-${getTimeSlotClass(a.timeSlot)}">${a.timeSlotText}</span>
                 </h6>
                 <small class="text-muted">状态：${getStatusText(a.status)}</small>
@@ -547,8 +547,8 @@ async function loadActivities() {
         </div>
       `).join('');
     }
-    
-    // 所有活动（管理员可编辑）
+
+    // 所有活动 - 日历表形式
     const allData = await apiRequest('/team/activities');
     const allContainer = document.getElementById('allActivitiesList');
 
@@ -563,54 +563,128 @@ async function loadActivities() {
     } else {
       const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
       
-      allContainer.innerHTML = allData.activities.map(a => `
-        <div class="card activity-card ${a.status}">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <div>
-                <h6 class="mb-1">
-                  <i class="bi bi-calendar3"></i> ${a.date}
-                  <span class="badge badge-time badge-${getTimeSlotClass(a.timeSlot)}">${a.timeSlotText}</span>
-                </h6>
-              </div>
-              <div>
-                <span class="badge bg-${a.status === 'confirmed' ? 'success' : 'secondary'} me-2">
-                  ${a.memberCount}/${a.members.length} 人
-                </span>
-                ${isAdmin ? `
-                  <button class="btn btn-outline-danger btn-sm" onclick="deleteActivity(${a.id})" title="删除活动">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                ` : ''}
-              </div>
+      // 按日期分组活动
+      const activitiesByDate = {};
+      allData.activities.forEach(a => {
+        if (!activitiesByDate[a.date]) {
+          activitiesByDate[a.date] = [];
+        }
+        activitiesByDate[a.date].push(a);
+      });
+
+      // 获取日期范围
+      const dates = Object.keys(activitiesByDate).sort();
+      
+      // 生成日历表
+      let calendarHTML = `
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-calendar3"></i> 活动日历</h5>
+            <small>${dates.length} 天有活动安排</small>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-bordered mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 150px;">日期</th>
+                    <th style="width: 100px;">下午</th>
+                    <th style="width: 100px;">晚上</th>
+                    <th>全天</th>
+                  </tr>
+                </thead>
+                <tbody>
+      `;
+
+      // 生成每一行（每一天）
+      dates.forEach(date => {
+        const dateObj = new Date(date);
+        const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+        const isToday = date === new Date().toISOString().split('T')[0];
+        
+        const dayActivities = activitiesByDate[date];
+        const afternoonActivity = dayActivities.find(a => a.time_slot === 1);
+        const eveningActivity = dayActivities.find(a => a.time_slot === 2);
+        const fullDayActivity = dayActivities.find(a => a.time_slot === 3);
+
+        calendarHTML += `
+          <tr class="${isToday ? 'table-info' : ''}">
+            <td class="fw-bold">
+              ${date}<br>
+              <small class="text-muted">周${dayOfWeek}</small>
+            </td>
+            <td class="text-center">
+              ${afternoonActivity ? renderActivityCell(afternoonActivity, isAdmin) : '<span class="text-muted">-</span>'}
+            </td>
+            <td class="text-center">
+              ${eveningActivity ? renderActivityCell(eveningActivity, isAdmin) : '<span class="text-muted">-</span>'}
+            </td>
+            <td class="text-center">
+              ${fullDayActivity ? renderActivityCell(fullDayActivity, isAdmin) : '<span class="text-muted">-</span>'}
+            </td>
+          </tr>
+        `;
+      });
+
+      calendarHTML += `
+                </tbody>
+              </table>
             </div>
-            <div class="d-flex flex-wrap gap-2 mb-3">
-              ${a.members.map(m => `
-                <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'} d-inline-flex align-items-center">
-                  ${m.isSeed ? '🌱' : ''}${m.name}${m.isSeed ? ' (种子)' : ''}
-                  ${isAdmin ? `<i class="bi bi-x ms-2" style="cursor: pointer;" onclick="removeMember(${a.id}, ${m.id}, '${m.name}')"></i>` : ''}
-                </span>
-              `).join('')}
-            </div>
-            ${isAdmin ? `
-              <div class="border-top pt-2">
-                <div class="d-flex gap-2">
-                  <button class="btn btn-outline-primary btn-sm" onclick="showAddMemberModal(${a.id}, '${a.date}', '${a.timeSlotText}')">
-                    <i class="bi bi-person-plus"></i> 添加成员
-                  </button>
-                  <button class="btn btn-outline-success btn-sm" onclick="rebuildActivity(${a.id}, '${a.date}', ${a.time_slot})">
-                    <i class="bi bi-arrow-clockwise"></i> 重新组队
-                  </button>
-                </div>
-              </div>
-            ` : ''}
           </div>
         </div>
-      `).join('');
+      `;
+
+      allContainer.innerHTML = calendarHTML;
     }
   } catch (error) {
     showToast('加载活动失败：' + error.message, 'danger');
   }
+}
+
+// 渲染活动单元格
+function renderActivityCell(activity, isAdmin) {
+  const memberCount = activity.memberCount || activity.members?.length || 0;
+  const members = activity.members || [];
+  
+  let cellHTML = `
+    <div class="badge bg-success mb-1">${memberCount}人</div>
+    <div class="small">
+  `;
+  
+  // 显示成员姓名（最多 3 个）
+  const displayMembers = members.slice(0, 3);
+  displayMembers.forEach(m => {
+    cellHTML += `
+      <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'} me-1 mb-1" style="font-size: 0.75rem;">
+        ${m.isSeed ? '🌱' : ''}${m.name}
+      </span>
+    `;
+  });
+  
+  if (members.length > 3) {
+    cellHTML += `<span class="text-muted small">+${members.length - 3}人</span>`;
+  }
+  
+  cellHTML += `</div>`;
+  
+  // 管理员操作按钮
+  if (isAdmin) {
+    cellHTML += `
+      <div class="mt-1">
+        <button class="btn btn-outline-primary btn-sm me-1" onclick="showAddMemberModal(${activity.id}, '${activity.date}', '${activity.timeSlotText}')" title="添加成员">
+          <i class="bi bi-person-plus"></i>
+        </button>
+        <button class="btn btn-outline-success btn-sm me-1" onclick="rebuildActivity(${activity.id}, '${activity.date}', ${activity.time_slot})" title="重新组队">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm" onclick="deleteActivity(${activity.id})" title="删除活动">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    `;
+  }
+  
+  return cellHTML;
 }
 
 // 删除活动
