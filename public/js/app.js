@@ -627,12 +627,17 @@ async function loadActivities() {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               let periodClass = '';
-              if (item.timeSlot === 1) {
+              const timeSlot = item.timeSlot || item.time_slot;
+              console.log('[我的活动] timeSlot:', timeSlot, 'item:', item);
+              if (timeSlot === 1) {
                 timeSlotText = '下午';
                 periodClass = 'bg-warning'; // 下午用黄色标识
-              } else if (item.timeSlot === 2) {
+              } else if (timeSlot === 2) {
                 timeSlotText = '晚上';
                 periodClass = 'bg-info'; // 晚上用蓝色标识
+              } else {
+                timeSlotText = '未知';
+                periodClass = 'bg-secondary';
               }
               cellContent += renderMyActivity(item.activity, timeSlotText, periodClass);
             }
@@ -767,7 +772,7 @@ async function loadActivities() {
           }
 
           if (dayActivities) {
-            // 按时间段排序：1=下午，2=晚上，3=全天
+            // 按时间段排序：1=下午，2=晚上
             dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
 
             // 渲染每个活动 - 下午和晚上分别显示
@@ -775,12 +780,17 @@ async function loadActivities() {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               let periodClass = '';
-              if (item.timeSlot === 1) {
+              const timeSlot = item.timeSlot || item.time_slot;
+              console.log('[日历活动] timeSlot:', timeSlot, 'item:', item);
+              if (timeSlot === 1) {
                 timeSlotText = '下午';
                 periodClass = 'bg-warning'; // 下午用黄色标识
-              } else if (item.timeSlot === 2) {
+              } else if (timeSlot === 2) {
                 timeSlotText = '晚上';
                 periodClass = 'bg-info'; // 晚上用蓝色标识
+              } else {
+                timeSlotText = '未知';
+                periodClass = 'bg-secondary';
               }
               cellContent += renderCalendarActivity(item.activity, timeSlotText, periodClass, isAdmin);
             }
