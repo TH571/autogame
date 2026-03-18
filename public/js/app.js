@@ -624,14 +624,12 @@ async function loadActivities() {
 
             // 渲染每个活动
             for (const item of dayActivities) {
-              // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
+              // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               if (item.timeSlot === 1) {
                 timeSlotText = '下午';
               } else if (item.timeSlot === 2) {
                 timeSlotText = '晚上';
-              } else if (item.timeSlot === 3) {
-                timeSlotText = '下午 + 晚上';
               }
               cellContent += renderMyActivity(item.activity, timeSlotText);
             }
@@ -771,14 +769,12 @@ async function loadActivities() {
             
             // 渲染每个活动
             for (const item of dayActivities) {
-              // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
+              // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               if (item.timeSlot === 1) {
                 timeSlotText = '下午';
               } else if (item.timeSlot === 2) {
                 timeSlotText = '晚上';
-              } else if (item.timeSlot === 3) {
-                timeSlotText = '下午 + 晚上';
               }
               cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
             }

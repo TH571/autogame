@@ -48,9 +48,9 @@ class TeamBuilderService {
       currentDate.setDate(today.getDate() + i);
       const dateStr = this.formatDate(currentDate);
 
-      // 检查三个时间段
-      for (let timeSlot = 1; timeSlot <= 3; timeSlot++) {
-        const result = await this.buildTeamForSlot(dateStr, timeSlot, seedUser, activityCode);
+      // 检查两个时间段（只计算下午和晚上）
+      for (let timeSlot = 1; timeSlot <= 2; timeSlot++) {
+        const result = await this.buildTeamForSlot(dateStr, timeSlot, seedUser, activityCode, results);
         if (result) {
           results.push(result);
         }
@@ -64,7 +64,7 @@ class TeamBuilderService {
   /**
    * 为特定日期和时间段组建队伍
    */
-  async buildTeamForSlot(date, timeSlot, seedUser, activityCode = null) {
+  async buildTeamForSlot(date, timeSlot, seedUser, activityCode = null, previousResults = []) {
     // 获取该时间段所有可用的用户
     let availableUsers;
     if (activityCode) {
@@ -131,6 +131,19 @@ class TeamBuilderService {
       };
     }
 
+    // 【重要】如果是晚上（timeSlot=2），检查今天下午是否已有组队
+    // 如果有，优先选择下午参与的用户，保持人员一致性
+    let afternoonParticipants = [];
+    if (timeSlot === 2) {
+      const afternoonResult = previousResults.find(r => 
+        r.date === date && r.timeSlot === 1
+      );
+      if (afternoonResult && afternoonResult.members) {
+        afternoonParticipants = afternoonResult.members.map(m => m.id);
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 下午参与人员 ${afternoonParticipants.length}人，优先选择他们参加晚上活动`);
+      }
+    }
+
     // 检查种子选手（如果活动规则要求）
     if (activityRules.requireSeed) {
       const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
@@ -181,6 +194,33 @@ class TeamBuilderService {
       const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
       if (seedAvailable) {
         regularUsers = availableUsers.filter(u => u.id !== seedUser.id);
+      }
+    }
+
+    // 【重要】如果是晚上，优先选择下午参与的用户
+    if (timeSlot === 2 && afternoonParticipants.length > 0) {
+      // 过滤出下午参与且晚上也有空的用户
+      const afternoonAvailableUsers = regularUsers.filter(u => 
+        afternoonParticipants.includes(u.id)
+      );
+      
+      // 计算需要多少人（优先用下午的人）
+      const usersNeeded = activityRules.playersPerGame - 1; // 减去种子选手
+      
+      // 如果下午参与的人数足够，优先选择他们
+      if (afternoonAvailableUsers.length >= usersNeeded) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 下午参与人数足够 (${afternoonAvailableUsers.length}人)，优先选择他们`);
+        // 对下午参与的用户进行排序（保持公平性）
+        const sortedAfternoonUsers = await this.sortUsersByPriority(afternoonAvailableUsers, date);
+        regularUsers = sortedAfternoonUsers;
+      } else {
+        // 下午参与人数不足，先用他们，再补充其他人
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 下午参与人数不足 (${afternoonAvailableUsers.length}人)，补充其他用户`);
+        const otherUsers = regularUsers.filter(u => 
+          !afternoonParticipants.includes(u.id)
+        );
+        // 下午参与的用户排前面，其他用户排后面
+        regularUsers = [...afternoonAvailableUsers, ...otherUsers];
       }
     }
 
