@@ -828,7 +828,7 @@ async function loadActivities() {
 function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
   const status = activity.status || 'confirmed';
   const members = activity.members || [];
-  const activityCode = activity.activity_code || activity.activityCode || '';
+  const activityName = activity.activity_name || activity.activity_code || '';
   
   let html = `
     <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10" style="font-size: 0.65rem;">
@@ -836,7 +836,7 @@ function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
         <div class="d-flex justify-content-between align-items-center mb-1">
           <div>
             <span class="badge ${periodClass}">${timeSlotText}</span>
-            ${activityCode ? `<span class="badge bg-secondary ms-1">${activityCode}</span>` : ''}
+            ${activityName ? `<span class="badge bg-secondary ms-1">${activityName}</span>` : ''}
           </div>
           <span class="badge bg-${status === 'confirmed' ? 'success' : 'secondary'}">
             ${status === 'confirmed' ? '✓' : '○'}
@@ -866,7 +866,7 @@ function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
 function renderCalendarActivity(activity, timeSlotText, periodClass = 'bg-warning', isAdmin) {
   const memberCount = activity.memberCount || activity.members?.length || 0;
   const members = activity.members || [];
-  const activityCode = activity.activity_code || activity.activityCode || '';
+  const activityName = activity.activity_name || activity.activity_code || '';
 
   let html = `
     <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
@@ -875,7 +875,7 @@ function renderCalendarActivity(activity, timeSlotText, periodClass = 'bg-warnin
         <div class="d-flex justify-content-between align-items-center mb-1">
           <div>
             <span class="badge ${periodClass}">${timeSlotText}</span>
-            ${activityCode ? `<span class="badge bg-secondary ms-1">${activityCode}</span>` : ''}
+            ${activityName ? `<span class="badge bg-secondary ms-1">${activityName}</span>` : ''}
           </div>
           <span class="badge bg-success">${memberCount}人</span>
         </div>

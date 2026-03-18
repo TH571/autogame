@@ -62,14 +62,21 @@ router.get('/activities', authMiddleware, async (req, res) => {
     const activitiesWithMembers = await Promise.all(activities.map(async (activity) => {
       const members = await Activity.getMembers(activity.id);
       
-      // 获取活动代码（从参与历史中获取第一个用户的申报）
+      // 获取活动代码和名称（从参与历史中获取第一个用户的申报）
       let activityCode = '';
+      let activityName = '';
       if (members.length > 0) {
         const firstMember = members[0];
         const Availability = require('../models/Availability');
         const availability = await Availability.checkAvailability(firstMember.id, activity.date, activity.time_slot);
         if (availability && availability.activity_code) {
           activityCode = availability.activity_code;
+          // 获取活动名称
+          const ActivityCode = require('../models/ActivityCode');
+          const activityCodeData = await ActivityCode.getByCode(availability.activity_code);
+          if (activityCodeData) {
+            activityName = activityCodeData.name;
+          }
         }
       }
       
@@ -78,7 +85,8 @@ router.get('/activities', authMiddleware, async (req, res) => {
         timeSlotText: getTimeSlotText(activity.time_slot),
         memberCount: members.length,
         members,
-        activity_code: activityCode
+        activity_code: activityCode,
+        activity_name: activityName
       };
     }));
 
