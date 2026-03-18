@@ -632,11 +632,6 @@ async function loadActivities() {
               }
               cellContent += renderMyActivity(item.activity, timeSlotText);
             }
-            
-            // 有活动的日期添加背景色
-            if (!isToday) {
-              cellClass = 'table-success';
-            }
           }
 
           if (isToday) {
@@ -835,7 +830,7 @@ function renderMyActivity(activity, timeSlotText) {
   const members = activity.members || [];
   
   let html = `
-    <div class="card mb-1 shadow-sm border-0" style="font-size: 0.65rem;">
+    <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10" style="font-size: 0.65rem;">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span class="badge bg-primary">${timeSlotText}</span>
@@ -869,7 +864,7 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
   const members = activity.members || [];
 
   let html = `
-    <div class="card mb-1 shadow-sm border-0 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
+    <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
          onclick="showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
