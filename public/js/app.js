@@ -825,7 +825,7 @@ function renderMyActivity(activity, timeSlotText) {
   const members = activity.members || [];
   
   let html = `
-    <div class="card mb-1 shadow-sm border-0" style="font-size: 0.65rem;">
+    <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10" style="font-size: 0.65rem;">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span class="badge bg-primary">${timeSlotText}</span>
