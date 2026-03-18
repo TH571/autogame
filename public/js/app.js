@@ -632,6 +632,11 @@ async function loadActivities() {
               }
               cellContent += renderMyActivity(item.activity, timeSlotText);
             }
+            
+            // 有活动的日期添加背景色
+            if (!isToday) {
+              cellClass = 'table-success';
+            }
           }
 
           if (isToday) {
@@ -782,6 +787,11 @@ async function loadActivities() {
                 timeSlotText = '下午 + 晚上';
               }
               cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
+            }
+            
+            // 有活动的日期添加背景色
+            if (!isToday) {
+              cellClass = 'table-success';
             }
           }
 
