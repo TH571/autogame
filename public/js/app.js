@@ -551,23 +551,19 @@ async function loadActivities() {
         return;
       }
 
-      // 获取第一个活动日期
-      const firstActivityDate = new Date(dates[0]);
-      
-      // 计算开始日期：从前天开始
-      const startDate = new Date(firstActivityDate);
+      // 计算开始日期：从今天的前天开始
+      const today = new Date().toISOString().split('T')[0];
+      const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 1); // 从前天开始
-      
+
       // 计算结束日期：显示 28 天（4 周）
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 27);
-      
+
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
       const startDay = startDate.getDate();
       const startDayOfWeek = startDate.getDay(); // 0=周日
-
-      const today = new Date().toISOString().split('T')[0];
 
       // 生成月历表
       let calendarHTML = `
@@ -692,30 +688,19 @@ async function loadActivities() {
 
       console.log('[loadActivities] 所有活动按日期分组:', activitiesByDate);
 
-      // 获取活动日期范围
-      const dates = Object.keys(activitiesByDate).sort();
-      if (dates.length === 0) {
-        allContainer.innerHTML = '<div class="text-center p-4">暂无活动数据</div>';
-        return;
-      }
-
-      // 获取第一个活动日期
-      const firstActivityDate = new Date(dates[0]);
-      
-      // 计算开始日期：从前天开始
-      const startDate = new Date(firstActivityDate);
+      // 计算开始日期：从今天的前天开始
+      const today = new Date().toISOString().split('T')[0];
+      const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 1); // 从前天开始
-      
+
       // 计算结束日期：显示 28 天（4 周）
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 27);
-      
+
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
       const startDay = startDate.getDate();
       const startDayOfWeek = startDate.getDay(); // 0=周日
-
-      const today = new Date().toISOString().split('T')[0];
 
       // 生成月历表
       let calendarHTML = `
