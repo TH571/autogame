@@ -558,9 +558,9 @@ async function loadActivities() {
       const startDate = new Date(firstActivityDate);
       startDate.setDate(startDate.getDate() - 1); // 从前天开始
       
-      // 计算结束日期：显示 42 天（6 周）
+      // 计算结束日期：显示 28 天（4 周）
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 41);
+      endDate.setDate(endDate.getDate() + 27);
       
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
@@ -593,9 +593,9 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（6 行 = 42 天）
+      // 生成日历行（4 行 = 28 天）
       let currentDate = new Date(startDate);
-      for (let row = 0; row < 6; row++) {
+      for (let row = 0; row < 4; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
@@ -706,9 +706,9 @@ async function loadActivities() {
       const startDate = new Date(firstActivityDate);
       startDate.setDate(startDate.getDate() - 1); // 从前天开始
       
-      // 计算结束日期：显示 42 天（6 周）
+      // 计算结束日期：显示 28 天（4 周）
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 41);
+      endDate.setDate(endDate.getDate() + 27);
       
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
@@ -744,9 +744,9 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（6 行 = 42 天）
+      // 生成日历行（4 行 = 28 天）
       let currentDate = new Date(startDate);
-      for (let row = 0; row < 6; row++) {
+      for (let row = 0; row < 4; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
