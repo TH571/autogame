@@ -5,17 +5,19 @@
 
 .calendar-table td {
   vertical-align: top;
-  padding: 4px;
+  padding: 6px;
   min-height: 120px;
 }
 
 .calendar-table .card {
   font-size: 0.7rem;
   margin-bottom: 4px;
+  margin-left: 2px;
+  margin-right: 2px;
 }
 
 .calendar-table .card-body {
-  padding: 4px;
+  padding: 3px;
 }
 
 .calendar-table .badge {
@@ -31,6 +33,7 @@
 .calendar-table .day-number {
   font-size: 0.9rem;
   font-weight: bold;
+  margin-bottom: 4px;
 }
 
 .calendar-table .activity-slot {
