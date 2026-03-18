@@ -405,26 +405,33 @@ function getStatusBadgeForDay(item) {
 function toggleTimeCheckbox(checkbox) {
   const date = checkbox.dataset.date;
   const slot = parseInt(checkbox.dataset.slot);
-  
+
+  console.log('[toggleTimeCheckbox] 点击:', date, 'slot:', slot, 'checked:', checkbox.checked);
+
   if (checkbox.disabled) {
     showToast('该时间段已锁定，无法修改', 'warning');
     checkbox.checked = !checkbox.checked; // 恢复原状态
+    console.log('[toggleTimeCheckbox] 已锁定，恢复状态');
     return;
   }
-  
+
   const index = selectedAvailabilities.findIndex(a => a.date === date && a.timeSlot === slot);
-  
+
   if (checkbox.checked) {
     // 勾选
     if (index < 0) {
       selectedAvailabilities.push({ date, timeSlot: slot, isLocked: false });
+      console.log('[toggleTimeCheckbox] 添加:', date, slot);
     }
   } else {
     // 取消勾选
     if (index >= 0) {
       selectedAvailabilities.splice(index, 1);
+      console.log('[toggleTimeCheckbox] 移除:', date, slot);
     }
   }
+
+  console.log('[toggleTimeCheckbox] 当前 selectedAvailabilities:', selectedAvailabilities);
 }
 
 // 提交申报
@@ -440,6 +447,9 @@ async function submitAvailability() {
     showToast('请选择至少一个时间段', 'warning');
     return;
   }
+
+  console.log('[提交申报] 准备提交:', selectedAvailabilities);
+  console.log('[提交申报] 活动代码:', activityCode);
 
   try {
     // 显示加载状态
@@ -458,6 +468,8 @@ async function submitAvailability() {
       })
     });
 
+    console.log('[提交申报] 返回数据:', data);
+
     let msg = data.message || '申报成功';
     if (data.regretPeriodCount) {
       msg += ` - ${data.regretPeriodCount}条在 24 小时后悔期内`;
@@ -465,7 +477,9 @@ async function submitAvailability() {
     showToast(msg, 'success');
 
     // 保持当前选中的活动代码，重新加载申报数据
+    console.log('[提交申报] 开始刷新数据...');
     await loadAvailabilityDates();
+    console.log('[提交申报] 数据刷新完成');
 
     // 恢复按钮状态
     if (submitBtn && originalText) {
@@ -473,6 +487,7 @@ async function submitAvailability() {
       submitBtn.innerHTML = originalText;
     }
   } catch (error) {
+    console.error('[提交申报] 错误:', error);
     showToast('提交失败：' + error.message, 'danger');
     // 恢复按钮状态
     const submitBtn = event?.target;
