@@ -166,6 +166,9 @@ function showPage(pageName) {
       case 'activities':
         loadActivities();
         break;
+      case 'rebuildRequests':
+        loadRebuildRequests();
+        break;
       case 'userManagement':
         loadUserManagement();
         break;
@@ -495,6 +498,9 @@ async function submitAvailability() {
     await loadAvailabilityDates();
     console.log('[提交申报] 数据刷新完成');
 
+    // 显示请求重新组队按钮
+    showRebuildRequestButton(activityCode);
+
     // 恢复按钮状态
     if (submitBtn && originalText) {
       submitBtn.disabled = false;
@@ -510,6 +516,79 @@ async function submitAvailability() {
       submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> 提交申报';
     }
   }
+}
+
+// 显示请求重新组队按钮
+function showRebuildRequestButton(activityCode) {
+  const container = document.getElementById('availabilityPage');
+  if (!container) return;
+
+  // 移除旧的按钮（如果有）
+  const oldBtn = document.getElementById('rebuildRequestBtn');
+  if (oldBtn) oldBtn.remove();
+
+  // 创建新按钮
+  const btn = document.createElement('div');
+  btn.id = 'rebuildRequestBtn';
+  btn.className = 'alert alert-info mt-3 mb-0';
+  btn.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <i class="bi bi-info-circle"></i> 您的时间申报已更新，可能需要重新组队
+        <br><small class="text-muted">提交后需要管理员审批，审批通过后将自动重新组队</small>
+      </div>
+      <button class="btn btn-primary" onclick="submitRebuildRequest('${activityCode}')">
+        <i class="bi bi-robot"></i> 请求重新组队
+      </button>
+    </div>
+  `;
+
+  container.querySelector('.card-body').appendChild(btn);
+}
+
+// 提交重新组队请求
+async function submitRebuildRequest(activityCode) {
+  const activityCodeSelect = document.getElementById('activityCodeSelect');
+  if (!activityCodeSelect || !activityCodeSelect.value) {
+    showToast('请先选择活动代码', 'warning');
+    return;
+  }
+
+  // 获取用户已申报的日期和时间段
+  const datesToRebuild = selectedAvailabilities.map(a => ({
+    date: a.date,
+    timeSlot: a.timeSlot
+  }));
+
+  if (datesToRebuild.length === 0) {
+    showToast('请先申报时间', 'warning');
+    return;
+  }
+
+  // 对每个时间段创建请求
+  let successCount = 0;
+  for (const item of datesToRebuild) {
+    try {
+      await apiRequest('/team-rebuild/requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          activityCode,
+          date: item.date,
+          timeSlot: item.timeSlot,
+          reason: '用户修改了时间申报'
+        })
+      });
+      successCount++;
+    } catch (error) {
+      console.error('提交请求失败:', error);
+    }
+  }
+
+  // 移除按钮
+  const btn = document.getElementById('rebuildRequestBtn');
+  if (btn) btn.remove();
+
+  showToast(`已提交 ${successCount} 个时间段的组队请求，请等待管理员审批`, 'success');
 }
 
 // 加载活动
@@ -2962,4 +3041,129 @@ function goToRegister() {
       inviteCodeInput.parentElement.classList.add('d-none'); // 隐藏输入框
     }
   }, 100);
+}
+
+// ========== 组队请求管理 ==========
+
+// 加载组队请求列表
+async function loadRebuildRequests() {
+  if (currentUser.role !== 'super_admin' && currentUser.role !== 'activity_admin') {
+    showToast('无权限访问', 'danger');
+    return;
+  }
+
+  try {
+    const data = await apiRequest('/team-rebuild/requests');
+    const requests = data.requests || [];
+
+    const tbody = document.getElementById('rebuildRequestsList');
+    const noRequestsMsg = document.getElementById('noRequestsMessage');
+    const badge = document.getElementById('pendingRequestsBadge');
+
+    // 更新徽章
+    if (badge) {
+      badge.textContent = requests.length;
+      badge.style.display = requests.length > 0 ? 'inline' : 'none';
+    }
+
+    if (requests.length === 0) {
+      tbody.innerHTML = '';
+      noRequestsMsg.style.display = 'block';
+      return;
+    }
+
+    noRequestsMsg.style.display = 'none';
+
+    tbody.innerHTML = requests.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.user_name}<br><small class="text-muted">${r.user_email}</small></td>
+        <td><span class="badge bg-primary">${r.activity_code}</span></td>
+        <td>${r.date}</td>
+        <td><span class="badge badge-time badge-${getTimeSlotClass(r.time_slot)}">${getTimeSlotText(r.time_slot)}</span></td>
+        <td>${r.reason || '-'}</td>
+        <td><small class="text-muted">${formatDateCN(r.created_at)}</small></td>
+        <td>
+          <button class="btn btn-success btn-sm me-1" onclick="approveRebuildRequest(${r.id})" title="批准">
+            <i class="bi bi-check-lg"></i> 批准
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="rejectRebuildRequest(${r.id})" title="拒绝">
+            <i class="bi bi-x-lg"></i> 拒绝
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('加载组队请求失败:', error);
+    showToast('加载失败：' + error.message, 'danger');
+  }
+}
+
+// 批准组队请求
+async function approveRebuildRequest(requestId) {
+  if (!confirm('批准后将立即执行重新组队，确定吗？')) return;
+
+  try {
+    const result = await apiRequest(`/team-rebuild/requests/${requestId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ adminNote: '管理员批准重新组队' })
+    });
+
+    const activityCount = result.activities ? result.activities.length : 0;
+    showToast(`请求已批准，重新组队完成！共创建 ${activityCount} 个活动`, 'success');
+
+    // 刷新列表
+    loadRebuildRequests();
+  } catch (error) {
+    showToast('批准失败：' + error.message, 'danger');
+  }
+}
+
+// 拒绝组队请求
+async function rejectRebuildRequest(requestId) {
+  const reason = prompt('请输入拒绝原因（可选）:', '暂时不需要重新组队');
+  if (reason === null) return; // 用户取消
+
+  try {
+    await apiRequest(`/team-rebuild/requests/${requestId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ adminNote: reason })
+    });
+
+    showToast('请求已拒绝', 'success');
+
+    // 刷新列表
+    loadRebuildRequests();
+  } catch (error) {
+    showToast('拒绝失败：' + error.message, 'danger');
+  }
+}
+
+// 辅助函数：获取时间段文本
+function getTimeSlotText(slot) {
+  const map = { 1: '下午', 2: '晚上', 3: '下午 + 晚上' };
+  return map[slot] || '未知';
+}
+
+// 辅助函数：获取时间段样式类
+function getTimeSlotClass(slot) {
+  const map = { 1: 'primary', 2: 'info', 3: 'success' };
+  return map[slot] || 'secondary';
+}
+
+// 辅助函数：格式化日期
+function formatDateCN(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  
+  if (hours < 1) {
+    return '刚刚';
+  } else if (hours < 24) {
+    return `${hours}小时前`;
+  } else {
+    return date.toLocaleDateString('zh-CN');
+  }
 }
