@@ -847,8 +847,8 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
         <div class="d-flex flex-wrap gap-1">
   `;
 
-  // 显示成员（最多 2 个）
-  members.slice(0, 2).forEach(m => {
+  // 显示成员（最多 4 个）
+  members.slice(0, 4).forEach(m => {
     html += `
       <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'}" style="font-size: 0.6rem; padding: 1px 3px;">
         ${m.isSeed ? '🌱' : ''}${m.name}
@@ -856,8 +856,8 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
     `;
   });
 
-  if (members.length > 2) {
-    html += `<span class="badge bg-secondary" style="font-size: 0.6rem;">+${members.length - 2}</span>`;
+  if (members.length > 4) {
+    html += `<span class="badge bg-secondary" style="font-size: 0.6rem;">+${members.length - 4}</span>`;
   }
 
   html += `</div>`;
