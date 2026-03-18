@@ -695,7 +695,8 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
   const members = activity.members || [];
 
   let html = `
-    <div class="card mb-1 shadow-sm border-0" style="font-size: 0.65rem;">
+    <div class="card mb-1 shadow-sm border-0 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
+         onclick="showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span class="badge bg-primary">${timeSlotText}</span>
@@ -719,20 +720,16 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
 
   html += `</div>`;
 
-  // 管理员操作
+  // 管理员操作按钮（阻止事件冒泡）
   if (isAdmin) {
     html += `
-      <div class="mt-1 d-flex gap-1 justify-content-center">
+      <div class="mt-1 d-flex gap-1 justify-content-center" onclick="event.stopPropagation()">
         <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.6rem;"
-                onclick="showAddMemberModal(${activity.id}, '${activity.date}', '${timeSlotText}')" title="添加成员">
-          <i class="bi bi-person-plus"></i>
-        </button>
-        <button class="btn btn-outline-success btn-sm py-0 px-1" style="font-size: 0.6rem;"
-                onclick="rebuildActivity(${activity.id}, '${activity.date}', ${activity.time_slot})" title="重新组队">
-          <i class="bi bi-arrow-clockwise"></i>
+                onclick="event.stopPropagation(); showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')" title="编辑">
+          <i class="bi bi-pencil"></i>
         </button>
         <button class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.6rem;"
-                onclick="deleteActivity(${activity.id})" title="删除活动">
+                onclick="event.stopPropagation(); deleteActivity(${activity.id})" title="删除活动">
           <i class="bi bi-trash"></i>
         </button>
       </div>
@@ -741,6 +738,195 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
 
   html += `</div></div>`;
   return html;
+}
+
+// 显示活动详情模态框
+async function showActivityDetailModal(activityId, date, timeSlotText) {
+  try {
+    // 获取活动详情
+    const activitiesData = await apiRequest('/team/activities');
+    const activity = activitiesData.activities.find(a => a.id === activityId);
+    
+    if (!activity) {
+      showToast('活动不存在', 'danger');
+      return;
+    }
+
+    const members = activity.members || [];
+    const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
+
+    // 构建模态框内容
+    let modalBody = `
+      <div class="mb-3">
+        <h6 class="fw-bold">
+          <i class="bi bi-calendar3"></i> ${date} 
+          <span class="badge bg-primary">${timeSlotText}</span>
+        </h6>
+        <p class="text-muted mb-0">参与人员：${members.length}人</p>
+      </div>
+      
+      <div class="mb-3">
+        <label class="form-label fw-bold">参与成员列表</label>
+        <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+    `;
+
+    if (members.length === 0) {
+      modalBody += `<p class="text-muted text-center">暂无成员</p>`;
+    } else {
+      modalBody += `<div class="d-flex flex-wrap gap-2">`;
+      members.forEach(m => {
+        modalBody += `
+          <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'} d-inline-flex align-items-center" style="font-size: 0.85rem; padding: 6px 10px;">
+            ${m.isSeed ? '🌱 ' : ''}${m.name}${m.isSeed ? ' (种子)' : ''}
+            ${isAdmin ? `<i class="bi bi-x ms-2" style="cursor: pointer;" onclick="removeMemberFromModal(${activityId}, ${m.id}, '${m.name}')"></i>` : ''}
+          </span>
+        `;
+      });
+      modalBody += `</div>`;
+    }
+
+    modalBody += `
+        </div>
+      </div>
+    `;
+
+    // 管理员添加成员区域
+    if (isAdmin) {
+      modalBody += `
+        <div class="mb-3">
+          <label class="form-label fw-bold">添加成员</label>
+          <select class="form-select" id="addMemberSelect">
+            <option value="">-- 选择成员 --</option>
+      `;
+
+      // 获取所有用户
+      const usersData = await apiRequest('/activity/users/all');
+      const allUsers = usersData.users || [];
+      const existingMemberIds = new Set(members.map(m => m.id));
+      const availableUsers = allUsers.filter(u => !existingMemberIds.has(u.id));
+
+      availableUsers.forEach(u => {
+        modalBody += `<option value="${u.id}">${u.name} (${u.email})</option>`;
+      });
+
+      modalBody += `
+          </select>
+        </div>
+        
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" onclick="addMemberToActivity(${activityId})">
+            <i class="bi bi-person-plus"></i> 添加成员
+          </button>
+          <button class="btn btn-success" onclick="rebuildActivity(${activityId}, '${date}', ${activity.time_slot})">
+            <i class="bi bi-arrow-clockwise"></i> 重新组队
+          </button>
+          <button class="btn btn-danger" onclick="deleteActivity(${activityId})">
+            <i class="bi bi-trash"></i> 删除活动
+          </button>
+        </div>
+      `;
+    }
+
+    // 显示模态框
+    const modalHtml = `
+      <div class="modal fade" id="activityDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title"><i class="bi bi-people-fill"></i> 活动详情</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              ${modalBody}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 移除旧模态框（如果有）
+    const oldModal = document.getElementById('activityDetailModal');
+    if (oldModal) oldModal.remove();
+
+    // 添加新模态框
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('activityDetailModal'));
+    modal.show();
+
+    // 模态框关闭后移除
+    document.getElementById('activityDetailModal').addEventListener('hidden.bs.modal', function() {
+      this.remove();
+    });
+
+  } catch (error) {
+    console.error('加载活动详情失败:', error);
+    showToast('加载失败：' + error.message, 'danger');
+  }
+}
+
+// 从模态框添加成员
+async function addMemberToActivity(activityId) {
+  const select = document.getElementById('addMemberSelect');
+  const userId = select.value;
+  
+  if (!userId) {
+    showToast('请选择成员', 'warning');
+    return;
+  }
+
+  try {
+    await apiRequest(`/team/activities/${activityId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds: [userId] })
+    });
+
+    const userName = select.options[select.selectedIndex].text;
+    showToast(`已添加 ${userName}`, 'success');
+    
+    // 刷新模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('activityDetailModal'));
+    modal.hide();
+    
+    // 重新打开模态框
+    setTimeout(() => {
+      const activityCard = document.querySelector(`.activity-card-clickable[onclick*="${activityId}"]`);
+      if (activityCard) {
+        activityCard.click();
+      }
+    }, 300);
+    
+    loadActivities();
+  } catch (error) {
+    showToast('添加失败：' + error.message, 'danger');
+  }
+}
+
+// 从模态框移除成员
+async function removeMemberFromModal(activityId, userId, userName) {
+  if (!confirm(`确定要移除 ${userName} 吗？`)) return;
+
+  try {
+    await apiRequest(`/team/activities/${activityId}/members/${userId}`, { method: 'DELETE' });
+    showToast('成员已移除', 'success');
+    
+    // 刷新模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('activityDetailModal'));
+    modal.hide();
+    
+    // 重新打开模态框
+    setTimeout(() => {
+      const activityCard = document.querySelector(`.activity-card-clickable[onclick*="${activityId}"]`);
+      if (activityCard) {
+        activityCard.click();
+      }
+    }, 300);
+    
+    loadActivities();
+  } catch (error) {
+    showToast('移除失败：' + error.message, 'danger');
+  }
 }
 
 // 删除活动
