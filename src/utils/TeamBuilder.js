@@ -79,6 +79,36 @@ class TeamBuilderService {
       return null;
     }
 
+    // 【新增】如果指定了活动代码，只允许关联人员参与组队
+    let associatedUserIds = [];
+    if (activityCode) {
+      const ActivityCodeModel = require('../models/ActivityCode');
+      const activityCodeData = await ActivityCodeModel.getById(activityCode);
+      if (!activityCodeData) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动代码不存在`);
+        return null;
+      }
+
+      // 获取活动代码的所有关联用户 ID
+      associatedUserIds = await ActivityCodeModel.getUserIdsByCodeId(activityCodeData.id);
+      
+      // 检查关联用户数量
+      if (associatedUserIds.length < 4) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动关联用户不足 4 人 (${associatedUserIds.length}人)，无法组队`);
+        return null;
+      }
+
+      // 过滤出只有关联用户才能参与
+      availableUsers = availableUsers.filter(u => associatedUserIds.includes(u.id));
+      
+      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动关联用户 ${associatedUserIds.length}人，当前可用关联用户 ${availableUsers.length}人`);
+
+      if (availableUsers.length < 4) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 可用关联用户不足 4 人，无法组队`);
+        return null;
+      }
+    }
+
     // 检查种子选手是否有空
     const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
     if (!seedAvailable) {

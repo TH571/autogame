@@ -866,8 +866,12 @@ async function loadActivityManagement() {
     }));
 
     const tbody = document.getElementById('activityManagementList');
-    tbody.innerHTML = processedCodes.map(code => `
-      <tr>
+    tbody.innerHTML = processedCodes.map(code => {
+      const totalMembers = code.users.length;
+      const hasEnoughUsers = totalMembers >= 4;
+      
+      return `
+      <tr class="${!hasEnoughUsers ? 'table-warning' : ''}">
         <td><strong>${code.code}</strong></td>
         <td>
           <div class="fw-bold">${code.name}</div>
@@ -889,13 +893,15 @@ async function loadActivityManagement() {
             <div class="d-flex align-items-center mb-1">
               <i class="bi bi-people-fill text-primary me-1"></i>
               <strong>参与用户：</strong>
-              <span class="badge bg-primary ms-1">${code.users.length}</span>
+              <span class="badge bg-primary ms-1">${totalMembers}</span>
+              ${!hasEnoughUsers ? '<span class="badge bg-danger ms-1"><i class="bi bi-exclamation-triangle"></i> 不足 4 人</span>' : ''}
             </div>
             <div class="ms-4">
               ${code.users && code.users.length > 0 
                 ? code.users.slice(0, 5).map(name => `<span class="badge bg-primary me-1 mb-1">${name}</span>`).join('') + (code.users.length > 5 ? `<span class="text-muted small">等${code.users.length}人</span>` : '')
                 : '<span class="text-muted small">暂无用户</span>'}
             </div>
+            ${!hasEnoughUsers ? `<small class="text-danger"><i class="bi bi-exclamation-circle"></i> 需要至少 4 个关联用户才能组队</small>` : ''}
           </div>
         </td>
         <td>
@@ -939,7 +945,7 @@ async function loadActivityManagement() {
           </div>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
 
     if (processedCodes.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
