@@ -479,6 +479,25 @@ async function submitAvailability() {
 
     console.log('[提交申报] 返回数据:', data);
 
+    // 检查是否有时间冲突错误
+    if (data.conflictErrors && data.conflictErrors.length > 0) {
+      // 显示冲突错误
+      let conflictMsg = '时间冲突，无法提交：<br>';
+      data.conflictErrors.forEach(err => {
+        conflictMsg += `• ${err}<br>`;
+      });
+      conflictMsg += '<br><small class="text-muted">提示：同一时间段只能申报一个活动</small>';
+      
+      showToast(conflictMsg, 'warning');
+      
+      // 恢复按钮状态
+      if (submitBtn && originalText) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+      return; // 阻止后续操作
+    }
+
     // 构建详细消息
     let msg = data.message || '申报成功';
     const details = [];

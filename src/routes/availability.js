@@ -128,6 +128,16 @@ router.post('/batch', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: '您未被分配到该活动代码，无法申报' });
     }
 
+    // 【新增】检查时间冲突 - 获取用户在其他活动中的所有申报
+    const allUserAvailabilities = await Availability.getByUser(req.user.id);
+    const conflictMap = new Map(); // key: date-timeSlot, value: activityCode
+    allUserAvailabilities.forEach(av => {
+      if (av.activity_code && av.activity_code !== activityCode) {
+        const key = `${av.date}-${av.time_slot}`;
+        conflictMap.set(key, av.activity_code);
+      }
+    });
+
     // 获取用户当前在该活动代码中的所有申报
     const existingAvailabilities = await Availability.getByUserAndCode(req.user.id, activityCode);
     const existingMap = new Map();
@@ -139,11 +149,12 @@ router.post('/batch', authMiddleware, async (req, res) => {
     // 处理用户提交的新申报
     const newAvailabilities = [];
     const errors = [];
+    const conflictErrors = []; // 时间冲突错误
     const regretPeriodCount = { count: 0, total: availabilities.length };
 
     for (const av of availabilities) {
       const key = `${av.date}-${av.timeSlot}`;
-      
+
       // 如果已经存在，跳过
       if (existingMap.has(key)) {
         existingMap.delete(key);
@@ -160,6 +171,13 @@ router.post('/batch', authMiddleware, async (req, res) => {
       // 验证时间段
       if (![1, 2, 3].includes(av.timeSlot)) {
         errors.push(`时间段 ${av.timeSlot} 无效`);
+        continue;
+      }
+
+      // 【新增】检查时间冲突
+      if (conflictMap.has(key)) {
+        const conflictActivityCode = conflictMap.get(key);
+        conflictErrors.push(`${av.date} ${getTimeSlotText(av.timeSlot)}: 已在活动"${conflictActivityCode}"中申报，无法重复申报`);
         continue;
       }
 
@@ -215,7 +233,7 @@ router.post('/batch', authMiddleware, async (req, res) => {
     } else {
       message = '没有变化';
     }
-    
+
     if (regretPeriodCount.count > 0) {
       message += `（其中 ${regretPeriodCount.count} 条在 24 小时后悔期内，可随时修改）`;
     }
@@ -226,7 +244,8 @@ router.post('/batch', authMiddleware, async (req, res) => {
       addedCount: newAvailabilities.length,
       deletedCount: deletedCount.count,
       regretPeriodCount: regretPeriodCount.count > 0 ? regretPeriodCount.count : undefined,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
+      conflictErrors: conflictErrors.length > 0 ? conflictErrors : undefined
     });
   } catch (error) {
     console.error('批量提交可用时间错误:', error);
