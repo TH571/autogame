@@ -1157,7 +1157,7 @@ async function showAddMemberModal(activityId, date, timeSlotText) {
 // 重新组队
 async function rebuildActivity(activityId, date, timeSlot) {
   if (!confirm('确定要重新组队吗？这将清空现有成员并重新选择。')) return;
-  
+
   try {
     // 调用组队 API 为特定日期组队
     const result = await apiRequest(`/team/build/${date}`, { method: 'POST' });
@@ -1165,6 +1165,34 @@ async function rebuildActivity(activityId, date, timeSlot) {
     loadActivities();
   } catch (error) {
     showToast('重新组队失败：' + error.message, 'danger');
+  }
+}
+
+// 为特定活动代码组队
+async function buildTeamsForCode(codeId, code) {
+  if (!confirm(`确定要为活动 "${code}" 执行自动组队吗？\n\n这将遍历未来 14 天，为每个时间段自动组队。`)) return;
+
+  try {
+    // 显示加载状态
+    showToast('正在执行组队...', 'info');
+
+    // 调用组队 API
+    const result = await apiRequest('/team/build', {
+      method: 'POST',
+      body: JSON.stringify({ activityCode: code })
+    });
+
+    if (result.activities && result.activities.length > 0) {
+      showToast(`组队完成！共创建 ${result.activities.length} 个活动`, 'success');
+      // 跳转到组队结果页面查看
+      setTimeout(() => {
+        showPage('activities');
+      }, 1000);
+    } else {
+      showToast('组队完成，但没有创建新活动（可能已有活动或人员不足）', 'warning');
+    }
+  } catch (error) {
+    showToast('组队失败：' + error.message, 'danger');
   }
 }
 
@@ -1461,7 +1489,7 @@ async function loadActivityManagement() {
               <strong>种子选手：</strong>
             </div>
             <div class="ms-4">
-              ${code.seeds && code.seeds.length > 0 
+              ${code.seeds && code.seeds.length > 0
                 ? code.seeds.map(name => `<span class="badge bg-warning text-dark me-1 mb-1"><i class="bi bi-star-fill"></i> ${name}</span>`).join('')
                 : '<span class="text-muted small">未设置</span>'}
             </div>
@@ -1474,7 +1502,7 @@ async function loadActivityManagement() {
               ${!hasEnoughUsers ? '<span class="badge bg-danger ms-1"><i class="bi bi-exclamation-triangle"></i> 不足 4 人</span>' : ''}
             </div>
             <div class="ms-4">
-              ${code.users && code.users.length > 0 
+              ${code.users && code.users.length > 0
                 ? code.users.slice(0, 5).map(name => `<span class="badge bg-primary me-1 mb-1">${name}</span>`).join('') + (code.users.length > 5 ? `<span class="text-muted small">等${code.users.length}人</span>` : '')
                 : '<span class="text-muted small">暂无用户</span>'}
             </div>
@@ -1504,6 +1532,9 @@ async function loadActivityManagement() {
         <td><small class="text-muted">${formatDateCN(code.created_at)}</small></td>
         <td>
           <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-success" onclick="buildTeamsForCode(${code.id}, '${code.code}')" title="执行组队">
+              <i class="bi bi-robot"></i> 组队
+            </button>
             <button class="btn btn-outline-primary" onclick="showAssignUserModal(${code.id}, '${code.name}')" title="分配用户">
               <i class="bi bi-people"></i>
             </button>

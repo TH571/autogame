@@ -55,8 +55,8 @@ for (let i = 0; i < 14; i++) {
   dates.push(formatDate(date));
 }
 
-// 时间段：1=下午，2=晚上，3=全天
-const timeSlots = [1, 2, 3];
+// 时间段：只生成 1=下午 和 2=晚上
+const timeSlots = [1, 2];
 
 // 为每个用户随机申报时间
 let totalInserts = 0;

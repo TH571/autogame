@@ -7,7 +7,10 @@ const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth'
 // 执行自动组队（活动管理员）
 router.post('/build', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const result = await TeamBuilder.buildTeams();
+    const { activityCode } = req.body;
+    
+    // 如果指定了活动代码，只对该活动组队
+    const result = await TeamBuilder.buildTeams(activityCode || null);
 
     if (result.success) {
       res.json({
