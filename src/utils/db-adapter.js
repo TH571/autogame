@@ -3,10 +3,7 @@
  * 统一 SQLite 和 PostgreSQL 的 API
  */
 
-const { getDb } = require('./db');
-
-// 检查是否为 Vercel 环境
-const isVercel = process.env.VERCEL === '1';
+const { getDb, isVercel } = require('./db');
 
 // 转换 PostgreSQL 结果为 SQLite 格式
 function convertPostgresResult(rows, isSingle = false) {
@@ -106,16 +103,17 @@ class DatabaseAdapter {
       // INSERT OR REPLACE -> INSERT ... ON CONFLICT DO UPDATE SET ...
       formattedSql = formattedSql.replace(/INSERT\s+OR\s+IGNORE/gi, 'INSERT');
       formattedSql = formattedSql.replace(/INSERT\s+OR\s+REPLACE/gi, 'INSERT');
-      
+
       // 对于 INSERT，添加 RETURNING id 来获取插入的 ID
       let finalSql = formattedSql;
       let isInsert = formattedSql.trim().toUpperCase().startsWith('INSERT');
       if (isInsert && !formattedSql.toUpperCase().includes('RETURNING') && !formattedSql.toUpperCase().includes('ON CONFLICT')) {
-        // 检查是否是 INSERT OR REPLACE 转换后的语句
-        if (formattedSql.toUpperCase().includes('AVAILABILITY') && formattedSql.toUpperCase().includes('USER_ID') && formattedSql.toUpperCase().includes('DATE')) {
+        // 检查是否是 availability 表的 INSERT OR REPLACE
+        const upperSql = formattedSql.toUpperCase();
+        if (upperSql.includes('AVAILABILITY') && upperSql.includes('USER_ID') && upperSql.includes('DATE')) {
           // availability 表有 UNIQUE(user_id, date, time_slot) 约束
           finalSql = formattedSql.replace(/VALUES\s*\([^)]+\)/i, (match) => `${match} ON CONFLICT (user_id, date, time_slot) DO UPDATE SET updated_at = CURRENT_TIMESTAMP, last_modified = CURRENT_TIMESTAMP, activity_code = EXCLUDED.activity_code`);
-        } else if (formattedSql.toUpperCase().includes('ON CONFLICT')) {
+        } else if (upperSql.includes('ON CONFLICT')) {
           finalSql = formattedSql;
         } else {
           finalSql = formattedSql.replace(/;?\s*$/, ' RETURNING id');
