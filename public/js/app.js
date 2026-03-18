@@ -828,12 +828,16 @@ async function loadActivities() {
 function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
   const status = activity.status || 'confirmed';
   const members = activity.members || [];
+  const activityCode = activity.activity_code || activity.activityCode || '';
   
   let html = `
     <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10" style="font-size: 0.65rem;">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="badge ${periodClass}">${timeSlotText}</span>
+          <div>
+            <span class="badge ${periodClass}">${timeSlotText}</span>
+            ${activityCode ? `<span class="badge bg-secondary ms-1">${activityCode}</span>` : ''}
+          </div>
           <span class="badge bg-${status === 'confirmed' ? 'success' : 'secondary'}">
             ${status === 'confirmed' ? '✓' : '○'}
           </span>
@@ -862,13 +866,17 @@ function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
 function renderCalendarActivity(activity, timeSlotText, periodClass = 'bg-warning', isAdmin) {
   const memberCount = activity.memberCount || activity.members?.length || 0;
   const members = activity.members || [];
+  const activityCode = activity.activity_code || activity.activityCode || '';
 
   let html = `
     <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
          onclick="showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="badge ${periodClass}">${timeSlotText}</span>
+          <div>
+            <span class="badge ${periodClass}">${timeSlotText}</span>
+            ${activityCode ? `<span class="badge bg-secondary ms-1">${activityCode}</span>` : ''}
+          </div>
           <span class="badge bg-success">${memberCount}人</span>
         </div>
         <div class="d-flex flex-wrap gap-1">

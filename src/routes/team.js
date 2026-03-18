@@ -61,11 +61,24 @@ router.get('/activities', authMiddleware, async (req, res) => {
     // 获取每个活动的成员
     const activitiesWithMembers = await Promise.all(activities.map(async (activity) => {
       const members = await Activity.getMembers(activity.id);
+      
+      // 获取活动代码（从参与历史中获取第一个用户的申报）
+      let activityCode = '';
+      if (members.length > 0) {
+        const firstMember = members[0];
+        const Availability = require('../models/Availability');
+        const availability = await Availability.checkAvailability(firstMember.id, activity.date, activity.time_slot);
+        if (availability && availability.activity_code) {
+          activityCode = availability.activity_code;
+        }
+      }
+      
       return {
         ...activity,
         timeSlotText: getTimeSlotText(activity.time_slot),
         memberCount: members.length,
-        members
+        members,
+        activity_code: activityCode
       };
     }));
 
