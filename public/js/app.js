@@ -606,12 +606,14 @@ async function loadActivities() {
           const isToday = dateStr === today;
           const dayActivities = activitiesByDate[dateStr];
           
-          // 显示日期（如果是其他月份，显示灰色）
+          // 显示日期和月份（如果是其他月份，显示灰色）
           const isCurrentMonth = currentDate.getMonth() === startMonth;
           const dayNum = currentDate.getDate();
-          const dayOfWeek = currentDate.getDay();
+          const monthNum = currentDate.getMonth() + 1;
           
-          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">${dayNum}</div>`;
+          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">
+            <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+          </div>`;
 
           if (dayActivities) {
             // 按时间段排序：1=下午，2=晚上，3=全天
@@ -755,11 +757,14 @@ async function loadActivities() {
           const isToday = dateStr === today;
           const dayActivities = activitiesByDate[dateStr];
           
-          // 显示日期（如果是其他月份，显示灰色）
+          // 显示日期和月份（如果是其他月份，显示灰色）
           const isCurrentMonth = currentDate.getMonth() === startMonth;
           const dayNum = currentDate.getDate();
+          const monthNum = currentDate.getMonth() + 1;
           
-          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">${dayNum}</div>`;
+          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">
+            <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+          </div>`;
 
           if (dayActivities) {
             // 按时间段排序：1=下午，2=晚上，3=全天
