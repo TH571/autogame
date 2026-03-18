@@ -1,0 +1,39 @@
+/* 日历表样式 */
+.calendar-table {
+  table-layout: fixed;
+}
+
+.calendar-table td {
+  vertical-align: top;
+  padding: 4px;
+  min-height: 120px;
+}
+
+.calendar-table .card {
+  font-size: 0.7rem;
+  margin-bottom: 4px;
+}
+
+.calendar-table .card-body {
+  padding: 4px;
+}
+
+.calendar-table .badge {
+  font-size: 0.65rem;
+  padding: 2px 4px;
+}
+
+.calendar-table .btn {
+  font-size: 0.65rem;
+  padding: 1px 4px;
+}
+
+.calendar-table .day-number {
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.calendar-table .activity-slot {
+  font-size: 0.65rem;
+  margin-bottom: 2px;
+}
