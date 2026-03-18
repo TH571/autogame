@@ -592,24 +592,35 @@ async function loadActivities() {
         for (let col = 0; col < 7; col++) {
           let cellContent = '';
           let cellClass = '';
-          
+
           const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
           const isToday = dateStr === today;
           const dayActivities = activitiesByDate[dateStr];
-          
-          // 显示日期和月份（如果是其他月份，显示灰色）
+
+          // 显示日期和月份
           const isCurrentMonth = currentDate.getMonth() === startMonth;
           const dayNum = currentDate.getDate();
           const monthNum = currentDate.getMonth() + 1;
-          
-          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">
-            <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
-          </div>`;
+
+          if (isToday) {
+            // 今天用红色背景显示
+            cellContent = `<div class="day-number text-white fw-bold" style="background-color: #dc3545; padding: 4px; border-radius: 4px; margin-bottom: 4px;">
+              <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+            </div>`;
+            cellClass = '';
+          } else {
+            cellContent = `<div class="day-number ${!isCurrentMonth ? 'text-muted' : ''}">
+              <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+            </div>`;
+            if (!isCurrentMonth) {
+              cellClass = 'bg-light';
+            }
+          }
 
           if (dayActivities) {
             // 按时间段排序：1=下午，2=晚上，3=全天
             dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
-            
+
             // 渲染每个活动
             for (const item of dayActivities) {
               // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
@@ -623,12 +634,6 @@ async function loadActivities() {
               }
               cellContent += renderMyActivity(item.activity, timeSlotText);
             }
-          }
-
-          if (isToday) {
-            cellClass = 'table-danger';
-          } else if (!isCurrentMonth) {
-            cellClass = 'bg-light';
           }
 
           // 移动到下一天
@@ -733,19 +738,30 @@ async function loadActivities() {
         for (let col = 0; col < 7; col++) {
           let cellContent = '';
           let cellClass = '';
-          
+
           const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
           const isToday = dateStr === today;
           const dayActivities = activitiesByDate[dateStr];
-          
-          // 显示日期和月份（如果是其他月份，显示灰色）
+
+          // 显示日期和月份
           const isCurrentMonth = currentDate.getMonth() === startMonth;
           const dayNum = currentDate.getDate();
           const monthNum = currentDate.getMonth() + 1;
-          
-          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">
-            <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
-          </div>`;
+
+          if (isToday) {
+            // 今天用红色背景显示
+            cellContent = `<div class="day-number text-white fw-bold" style="background-color: #dc3545; padding: 4px; border-radius: 4px; margin-bottom: 4px;">
+              <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+            </div>`;
+            cellClass = '';
+          } else {
+            cellContent = `<div class="day-number ${!isCurrentMonth ? 'text-muted' : ''}">
+              <small style="font-size: 0.7em;">${monthNum}月</small>${dayNum}日
+            </div>`;
+            if (!isCurrentMonth) {
+              cellClass = 'bg-light';
+            }
+          }
 
           if (dayActivities) {
             // 按时间段排序：1=下午，2=晚上，3=全天
@@ -764,12 +780,6 @@ async function loadActivities() {
               }
               cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
             }
-          }
-
-          if (isToday) {
-            cellClass = 'table-danger';
-          } else if (!isCurrentMonth) {
-            cellClass = 'bg-light';
           }
 
           // 移动到下一天
