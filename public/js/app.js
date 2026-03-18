@@ -812,6 +812,7 @@ async function loadActivities() {
 // 渲染我的活动卡片
 function renderMyActivity(activity, timeSlotText) {
   const status = activity.status || 'confirmed';
+  const members = activity.members || [];
   
   let html = `
     <div class="card mb-1 shadow-sm border-0" style="font-size: 0.65rem;">
@@ -822,12 +823,23 @@ function renderMyActivity(activity, timeSlotText) {
             ${status === 'confirmed' ? '✓' : '○'}
           </span>
         </div>
-        <div class="text-muted" style="font-size: 0.6rem;">
-          <i class="bi bi-people-fill"></i> 已加入
-        </div>
-      </div>
-    </div>
+        <div class="d-flex flex-wrap gap-1 mb-1">
   `;
+
+  // 显示成员（最多 4 个）
+  members.slice(0, 4).forEach(m => {
+    html += `
+      <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'}" style="font-size: 0.6rem; padding: 1px 3px;">
+        ${m.isSeed ? '🌱' : ''}${m.name}
+      </span>
+    `;
+  });
+
+  if (members.length > 4) {
+    html += `<span class="badge bg-secondary" style="font-size: 0.6rem;">+${members.length - 4}</span>`;
+  }
+
+  html += `</div></div></div>`;
   return html;
 }
 
