@@ -720,17 +720,13 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
 
   html += `</div>`;
 
-  // 管理员操作按钮（阻止事件冒泡）
+  // 管理员操作按钮（阻止事件冒泡）- 只显示编辑按钮
   if (isAdmin) {
     html += `
       <div class="mt-1 d-flex gap-1 justify-content-center" onclick="event.stopPropagation()">
         <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.6rem;"
                 onclick="event.stopPropagation(); showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')" title="编辑">
-          <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.6rem;"
-                onclick="event.stopPropagation(); deleteActivity(${activity.id})" title="删除活动">
-          <i class="bi bi-trash"></i>
+          <i class="bi bi-pencil"></i> 编辑
         </button>
       </div>
     `;
