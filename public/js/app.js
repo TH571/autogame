@@ -635,7 +635,7 @@ async function loadActivities() {
           }
 
           if (isToday) {
-            cellClass = 'table-info';
+            cellClass = 'table-danger';
           } else if (!isCurrentMonth) {
             cellClass = 'bg-light';
           }
@@ -786,7 +786,7 @@ async function loadActivities() {
           }
 
           if (isToday) {
-            cellClass = 'table-info';
+            cellClass = 'table-danger';
           } else if (!isCurrentMonth) {
             cellClass = 'bg-light';
           }
