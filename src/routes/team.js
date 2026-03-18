@@ -100,13 +100,21 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
   try {
     const history = await Activity.getUserParticipationHistory(req.user.id);
 
-    const activities = history.map(h => ({
-      id: h.id,
-      date: h.date,
-      timeSlot: h.time_slot,
-      timeSlotText: getTimeSlotText(h.time_slot),
-      status: h.status,
-      createdAt: h.created_at
+    const activities = await Promise.all(history.map(async h => {
+      const members = await Activity.getMembers(h.id);
+      return {
+        id: h.id,
+        date: h.date,
+        timeSlot: h.time_slot,
+        timeSlotText: getTimeSlotText(h.time_slot),
+        status: h.status,
+        createdAt: h.created_at,
+        members: members.map(m => ({
+          id: m.id,
+          name: m.name,
+          isSeed: m.is_seed === 1
+        }))
+      };
     }));
 
     res.json({ activities });
