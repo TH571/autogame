@@ -515,8 +515,11 @@ async function submitAvailability() {
 // 加载活动
 async function loadActivities() {
   try {
+    console.log('[loadActivities] 开始加载活动...');
+    
     // 我的活动 - 月历表形式
     const myData = await apiRequest('/team/activities/my');
+    console.log('[loadActivities] 我的活动:', myData.activities);
     const myContainer = document.getElementById('myActivitiesList');
 
     if (myData.activities.length === 0) {
@@ -528,14 +531,18 @@ async function loadActivities() {
         </div>
       `;
     } else {
-      // 按日期分组活动
+      // 按日期分组活动 - 使用数组存储同一天的多个活动
       const activitiesByDate = {};
       myData.activities.forEach(a => {
-        if (!activitiesByDate[a.date]) {
-          activitiesByDate[a.date] = { 1: null, 2: null, 3: null };
+        const date = a.date;
+        const timeSlot = a.timeSlot || a.time_slot;
+        if (!activitiesByDate[date]) {
+          activitiesByDate[date] = [];
         }
-        activitiesByDate[a.date][a.time_slot] = a;
+        activitiesByDate[date].push({ timeSlot, activity: a });
       });
+
+      console.log('[loadActivities] 按日期分组:', activitiesByDate);
 
       // 获取当月第一天（以第一个活动日期所在月份为准）
       const firstDate = Object.keys(activitiesByDate).sort()[0];
@@ -603,17 +610,13 @@ async function loadActivities() {
             cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''}">${day}</div>`;
 
             if (dayActivities) {
-              // 下午活动
-              if (dayActivities[1]) {
-                cellContent += renderMyActivity(dayActivities[1], '下午');
-              }
-              // 晚上活动
-              if (dayActivities[2]) {
-                cellContent += renderMyActivity(dayActivities[2], '晚上');
-              }
-              // 全天活动
-              if (dayActivities[3]) {
-                cellContent += renderMyActivity(dayActivities[3], '全天');
+              // 按时间段排序：1=下午，2=晚上，3=全天
+              dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
+              
+              // 渲染每个活动
+              for (const item of dayActivities) {
+                const timeSlotText = item.timeSlot === 1 ? '下午' : (item.timeSlot === 2 ? '晚上' : '全天');
+                cellContent += renderMyActivity(item.activity, timeSlotText);
               }
             }
 
@@ -649,6 +652,7 @@ async function loadActivities() {
 
     // 所有活动 - 月历表形式
     const allData = await apiRequest('/team/activities');
+    console.log('[loadActivities] 所有活动:', allData.activities);
     const allContainer = document.getElementById('allActivitiesList');
 
     if (allData.activities.length === 0) {
@@ -662,14 +666,18 @@ async function loadActivities() {
     } else {
       const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
 
-      // 按日期分组活动
+      // 按日期分组活动 - 使用数组存储同一天的多个活动
       const activitiesByDate = {};
       allData.activities.forEach(a => {
-        if (!activitiesByDate[a.date]) {
-          activitiesByDate[a.date] = { 1: null, 2: null, 3: null };
+        const date = a.date;
+        const timeSlot = a.timeSlot || a.time_slot;
+        if (!activitiesByDate[date]) {
+          activitiesByDate[date] = [];
         }
-        activitiesByDate[a.date][a.time_slot] = a;
+        activitiesByDate[date].push({ timeSlot, activity: a });
       });
+
+      console.log('[loadActivities] 所有活动按日期分组:', activitiesByDate);
 
       // 获取当月第一天（以第一个活动日期所在月份为准）
       const firstDate = Object.keys(activitiesByDate).sort()[0];
@@ -740,17 +748,13 @@ async function loadActivities() {
             cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''}">${day}</div>`;
 
             if (dayActivities) {
-              // 下午活动
-              if (dayActivities[1]) {
-                cellContent += renderCalendarActivity(dayActivities[1], '下午', isAdmin);
-              }
-              // 晚上活动
-              if (dayActivities[2]) {
-                cellContent += renderCalendarActivity(dayActivities[2], '晚上', isAdmin);
-              }
-              // 全天活动
-              if (dayActivities[3]) {
-                cellContent += renderCalendarActivity(dayActivities[3], '全天', isAdmin);
+              // 按时间段排序：1=下午，2=晚上，3=全天
+              dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
+              
+              // 渲染每个活动
+              for (const item of dayActivities) {
+                const timeSlotText = item.timeSlot === 1 ? '下午' : (item.timeSlot === 2 ? '晚上' : '全天');
+                cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
               }
             }
 
@@ -784,6 +788,7 @@ async function loadActivities() {
       allContainer.innerHTML = calendarHTML;
     }
   } catch (error) {
+    console.error('[loadActivities] 错误:', error);
     showToast('加载活动失败：' + error.message, 'danger');
   }
 }
@@ -810,7 +815,7 @@ function renderMyActivity(activity, timeSlotText) {
   return html;
 }
 
-// 渲染日历活动卡片
+// 渲染日历活动卡片（所有活动）
 function renderCalendarActivity(activity, timeSlotText, isAdmin) {
   const memberCount = activity.memberCount || activity.members?.length || 0;
   const members = activity.members || [];
