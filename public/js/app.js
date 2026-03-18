@@ -859,7 +859,7 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
   const members = activity.members || [];
 
   let html = `
-    <div class="card mb-1 shadow-sm border-0 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
+    <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10 activity-card-clickable" style="font-size: 0.65rem; cursor: pointer;"
          onclick="showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
