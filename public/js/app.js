@@ -544,17 +544,28 @@ async function loadActivities() {
 
       console.log('[loadActivities] 按日期分组:', activitiesByDate);
 
-      // 获取当月第一天（以第一个活动日期所在月份为准）
-      const firstDate = Object.keys(activitiesByDate).sort()[0];
-      const baseDate = new Date(firstDate);
-      const year = baseDate.getFullYear();
-      const month = baseDate.getMonth();
+      // 获取活动日期范围
+      const dates = Object.keys(activitiesByDate).sort();
+      if (dates.length === 0) {
+        myContainer.innerHTML = '<div class="text-center p-4">暂无活动数据</div>';
+        return;
+      }
 
-      // 获取当月第一天和最后一天
-      const firstDayOfMonth = new Date(year, month, 1);
-      const lastDayOfMonth = new Date(year, month + 1, 0);
-      const totalDays = lastDayOfMonth.getDate();
-      const startDayOfWeek = firstDayOfMonth.getDay(); // 0=周日
+      // 获取第一个活动日期
+      const firstActivityDate = new Date(dates[0]);
+      
+      // 计算开始日期：从前天开始
+      const startDate = new Date(firstActivityDate);
+      startDate.setDate(startDate.getDate() - 1); // 从前天开始
+      
+      // 计算结束日期：显示 42 天（6 周）
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 41);
+      
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth();
+      const startDay = startDate.getDate();
+      const startDayOfWeek = startDate.getDay(); // 0=周日
 
       const today = new Date().toISOString().split('T')[0];
 
@@ -562,7 +573,7 @@ async function loadActivities() {
       let calendarHTML = `
         <div class="card shadow-sm">
           <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> ${year}年${month + 1}月 我的活动</h5>
+            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> ${startYear}年${startMonth + 1}月${startDay}日 起</h5>
             <span class="badge bg-light text-dark">${myData.activities.length} 个活动</span>
           </div>
           <div class="card-body p-0">
@@ -582,66 +593,58 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（6 行足够显示任何月份）
-      let day = 1;
+      // 生成日历行（6 行 = 42 天）
+      let currentDate = new Date(startDate);
       for (let row = 0; row < 6; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
           let cellContent = '';
           let cellClass = '';
+          
+          const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+          const isToday = dateStr === today;
+          const dayActivities = activitiesByDate[dateStr];
+          
+          // 显示日期（如果是其他月份，显示灰色）
+          const isCurrentMonth = currentDate.getMonth() === startMonth;
+          const dayNum = currentDate.getDate();
+          const dayOfWeek = currentDate.getDay();
+          
+          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">${dayNum}</div>`;
 
-          // 第一行前面的空白格
-          if (row === 0 && col < startDayOfWeek) {
-            cellClass = 'bg-light';
-            cellContent = '';
-          }
-          // 超出当月日期
-          else if (day > totalDays) {
-            cellClass = 'bg-light';
-            cellContent = '';
-          }
-          // 正常日期格
-          else {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === today;
-            const dayActivities = activitiesByDate[dateStr];
-
-            cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''}">${day}</div>`;
-
-            if (dayActivities) {
-              // 按时间段排序：1=下午，2=晚上，3=全天
-              dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
-              
-              // 渲染每个活动
-              for (const item of dayActivities) {
-                // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
-                let timeSlotText = '';
-                if (item.timeSlot === 1) {
-                  timeSlotText = '下午';
-                } else if (item.timeSlot === 2) {
-                  timeSlotText = '晚上';
-                } else if (item.timeSlot === 3) {
-                  timeSlotText = '下午 + 晚上';
-                }
-                cellContent += renderMyActivity(item.activity, timeSlotText);
+          if (dayActivities) {
+            // 按时间段排序：1=下午，2=晚上，3=全天
+            dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
+            
+            // 渲染每个活动
+            for (const item of dayActivities) {
+              // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
+              let timeSlotText = '';
+              if (item.timeSlot === 1) {
+                timeSlotText = '下午';
+              } else if (item.timeSlot === 2) {
+                timeSlotText = '晚上';
+              } else if (item.timeSlot === 3) {
+                timeSlotText = '下午 + 晚上';
               }
+              cellContent += renderMyActivity(item.activity, timeSlotText);
             }
-
-            if (isToday) {
-              cellClass = 'table-info';
-            }
-
-            day++;
           }
+
+          if (isToday) {
+            cellClass = 'table-info';
+          } else if (!isCurrentMonth) {
+            cellClass = 'bg-light';
+          }
+
+          // 移动到下一天
+          currentDate.setDate(currentDate.getDate() + 1);
 
           calendarHTML += `<td class="${cellClass}" style="min-height: 120px;">${cellContent}</td>`;
         }
 
         calendarHTML += '</tr>';
-
-        // 如果已经显示完所有日期，提前结束
-        if (day > totalDays) break;
       }
 
       calendarHTML += `
@@ -687,17 +690,28 @@ async function loadActivities() {
 
       console.log('[loadActivities] 所有活动按日期分组:', activitiesByDate);
 
-      // 获取当月第一天（以第一个活动日期所在月份为准）
-      const firstDate = Object.keys(activitiesByDate).sort()[0];
-      const baseDate = new Date(firstDate);
-      const year = baseDate.getFullYear();
-      const month = baseDate.getMonth();
+      // 获取活动日期范围
+      const dates = Object.keys(activitiesByDate).sort();
+      if (dates.length === 0) {
+        allContainer.innerHTML = '<div class="text-center p-4">暂无活动数据</div>';
+        return;
+      }
 
-      // 获取当月第一天和最后一天
-      const firstDayOfMonth = new Date(year, month, 1);
-      const lastDayOfMonth = new Date(year, month + 1, 0);
-      const totalDays = lastDayOfMonth.getDate();
-      const startDayOfWeek = firstDayOfMonth.getDay(); // 0=周日
+      // 获取第一个活动日期
+      const firstActivityDate = new Date(dates[0]);
+      
+      // 计算开始日期：从前天开始
+      const startDate = new Date(firstActivityDate);
+      startDate.setDate(startDate.getDate() - 1); // 从前天开始
+      
+      // 计算结束日期：显示 42 天（6 周）
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 41);
+      
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth();
+      const startDay = startDate.getDate();
+      const startDayOfWeek = startDate.getDay(); // 0=周日
 
       const today = new Date().toISOString().split('T')[0];
 
@@ -705,7 +719,7 @@ async function loadActivities() {
       let calendarHTML = `
         <div class="card shadow-sm">
           <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-calendar3"></i> ${year}年${month + 1}月 活动日历</h5>
+            <h5 class="mb-0"><i class="bi bi-calendar3"></i> ${startYear}年${startMonth + 1}月${startDay}日 起</h5>
             <div>
               <span class="badge bg-success me-2"><i class="bi bi-check-circle"></i> 已组队</span>
               <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> 种子选手</span>
@@ -728,66 +742,57 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（6 行足够显示任何月份）
-      let day = 1;
+      // 生成日历行（6 行 = 42 天）
+      let currentDate = new Date(startDate);
       for (let row = 0; row < 6; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
           let cellContent = '';
           let cellClass = '';
+          
+          const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+          const isToday = dateStr === today;
+          const dayActivities = activitiesByDate[dateStr];
+          
+          // 显示日期（如果是其他月份，显示灰色）
+          const isCurrentMonth = currentDate.getMonth() === startMonth;
+          const dayNum = currentDate.getDate();
+          
+          cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''} ${!isCurrentMonth ? 'text-muted' : ''}">${dayNum}</div>`;
 
-          // 第一行前面的空白格
-          if (row === 0 && col < startDayOfWeek) {
-            cellClass = 'bg-light';
-            cellContent = '';
-          }
-          // 超出当月日期
-          else if (day > totalDays) {
-            cellClass = 'bg-light';
-            cellContent = '';
-          }
-          // 正常日期格
-          else {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === today;
-            const dayActivities = activitiesByDate[dateStr];
-
-            cellContent = `<div class="day-number ${isToday ? 'text-primary' : ''}">${day}</div>`;
-
-            if (dayActivities) {
-              // 按时间段排序：1=下午，2=晚上，3=全天
-              dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
-              
-              // 渲染每个活动
-              for (const item of dayActivities) {
-                // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
-                let timeSlotText = '';
-                if (item.timeSlot === 1) {
-                  timeSlotText = '下午';
-                } else if (item.timeSlot === 2) {
-                  timeSlotText = '晚上';
-                } else if (item.timeSlot === 3) {
-                  timeSlotText = '下午 + 晚上';
-                }
-                cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
+          if (dayActivities) {
+            // 按时间段排序：1=下午，2=晚上，3=全天
+            dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
+            
+            // 渲染每个活动
+            for (const item of dayActivities) {
+              // 时间段显示：1=下午，2=晚上，3=全天→下午 + 晚上
+              let timeSlotText = '';
+              if (item.timeSlot === 1) {
+                timeSlotText = '下午';
+              } else if (item.timeSlot === 2) {
+                timeSlotText = '晚上';
+              } else if (item.timeSlot === 3) {
+                timeSlotText = '下午 + 晚上';
               }
+              cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
             }
-
-            if (isToday) {
-              cellClass = 'table-info';
-            }
-
-            day++;
           }
+
+          if (isToday) {
+            cellClass = 'table-info';
+          } else if (!isCurrentMonth) {
+            cellClass = 'bg-light';
+          }
+
+          // 移动到下一天
+          currentDate.setDate(currentDate.getDate() + 1);
 
           calendarHTML += `<td class="${cellClass}" style="min-height: 120px;">${cellContent}</td>`;
         }
 
         calendarHTML += '</tr>';
-
-        // 如果已经显示完所有日期，提前结束
-        if (day > totalDays) break;
       }
 
       calendarHTML += `
