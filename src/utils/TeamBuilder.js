@@ -286,7 +286,10 @@ class TeamBuilderService {
       members: [
         { ...seedUser, isSeed: true },
         ...selectedUsers.map(u => ({ ...u, isSeed: false }))
-      ]
+      ],
+      // 明确标识时间段
+      period: timeSlot === 1 ? 'afternoon' : 'evening',
+      periodText: timeSlot === 1 ? '下午' : '晚上'
     };
   }
 

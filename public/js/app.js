@@ -619,19 +619,22 @@ async function loadActivities() {
           }
 
           if (dayActivities) {
-            // 按时间段排序：1=下午，2=晚上，3=全天
+            // 按时间段排序：1=下午，2=晚上
             dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
 
-            // 渲染每个活动
+            // 渲染每个活动 - 下午和晚上分别显示
             for (const item of dayActivities) {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
+              let periodClass = '';
               if (item.timeSlot === 1) {
                 timeSlotText = '下午';
+                periodClass = 'bg-warning'; // 下午用黄色标识
               } else if (item.timeSlot === 2) {
                 timeSlotText = '晚上';
+                periodClass = 'bg-info'; // 晚上用蓝色标识
               }
-              cellContent += renderMyActivity(item.activity, timeSlotText);
+              cellContent += renderMyActivity(item.activity, timeSlotText, periodClass);
             }
           }
 
@@ -766,17 +769,20 @@ async function loadActivities() {
           if (dayActivities) {
             // 按时间段排序：1=下午，2=晚上，3=全天
             dayActivities.sort((a, b) => a.timeSlot - b.timeSlot);
-            
-            // 渲染每个活动
+
+            // 渲染每个活动 - 下午和晚上分别显示
             for (const item of dayActivities) {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
+              let periodClass = '';
               if (item.timeSlot === 1) {
                 timeSlotText = '下午';
+                periodClass = 'bg-warning'; // 下午用黄色标识
               } else if (item.timeSlot === 2) {
                 timeSlotText = '晚上';
+                periodClass = 'bg-info'; // 晚上用蓝色标识
               }
-              cellContent += renderCalendarActivity(item.activity, timeSlotText, isAdmin);
+              cellContent += renderCalendarActivity(item.activity, timeSlotText, periodClass, isAdmin);
             }
           }
 
@@ -809,7 +815,7 @@ async function loadActivities() {
 }
 
 // 渲染我的活动卡片
-function renderMyActivity(activity, timeSlotText) {
+function renderMyActivity(activity, timeSlotText, periodClass = 'bg-warning') {
   const status = activity.status || 'confirmed';
   const members = activity.members || [];
   
@@ -817,7 +823,7 @@ function renderMyActivity(activity, timeSlotText) {
     <div class="card mb-1 shadow-sm border-0 bg-success bg-opacity-10" style="font-size: 0.65rem;">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="badge bg-primary">${timeSlotText}</span>
+          <span class="badge ${periodClass}">${timeSlotText}</span>
           <span class="badge bg-${status === 'confirmed' ? 'success' : 'secondary'}">
             ${status === 'confirmed' ? '✓' : '○'}
           </span>
@@ -843,7 +849,7 @@ function renderMyActivity(activity, timeSlotText) {
 }
 
 // 渲染日历活动卡片（所有活动）
-function renderCalendarActivity(activity, timeSlotText, isAdmin) {
+function renderCalendarActivity(activity, timeSlotText, periodClass = 'bg-warning', isAdmin) {
   const memberCount = activity.memberCount || activity.members?.length || 0;
   const members = activity.members || [];
 
@@ -852,7 +858,7 @@ function renderCalendarActivity(activity, timeSlotText, isAdmin) {
          onclick="showActivityDetailModal(${activity.id}, '${activity.date}', '${timeSlotText}')">
       <div class="card-body p-1">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="badge bg-primary">${timeSlotText}</span>
+          <span class="badge ${periodClass}">${timeSlotText}</span>
           <span class="badge bg-success">${memberCount}人</span>
         </div>
         <div class="d-flex flex-wrap gap-1">
