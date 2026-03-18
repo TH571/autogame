@@ -135,8 +135,8 @@ function showMainApp() {
     }
   }
 
-  // 默认显示时间申报页面
-  showPage('availability');
+  // 默认显示组队结果页面
+  showPage('activities');
 }
 
 // 切换页面
