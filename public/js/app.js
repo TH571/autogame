@@ -544,21 +544,16 @@ async function loadActivities() {
 
       console.log('[loadActivities] 按日期分组:', activitiesByDate);
 
-      // 获取活动日期范围
-      const dates = Object.keys(activitiesByDate).sort();
-      if (dates.length === 0) {
-        myContainer.innerHTML = '<div class="text-center p-4">暂无活动数据</div>';
-        return;
-      }
-
-      // 计算开始日期：从今天的前天开始
-      const today = new Date().toISOString().split('T')[0];
+      // 计算开始日期：从当前周的周日开始
+      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date(todayStr);
+      const currentDayOfWeek = today.getDay(); // 0=周日
       const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - 1); // 从前天开始
+      startDate.setDate(today.getDate() - currentDayOfWeek); // 回到本周日
 
-      // 计算结束日期：显示 28 天（4 周）
+      // 计算结束日期：显示 35 天（5 周）
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 27);
+      endDate.setDate(endDate.getDate() + 34);
 
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
@@ -589,9 +584,9 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（4 行 = 28 天）
+      // 生成日历行（5 行 = 35 天）
       let currentDate = new Date(startDate);
-      for (let row = 0; row < 4; row++) {
+      for (let row = 0; row < 5; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
@@ -688,19 +683,20 @@ async function loadActivities() {
 
       console.log('[loadActivities] 所有活动按日期分组:', activitiesByDate);
 
-      // 计算开始日期：从今天的前天开始
-      const today = new Date().toISOString().split('T')[0];
+      // 计算开始日期：从当前周的周日开始
+      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date(todayStr);
+      const currentDayOfWeek = today.getDay(); // 0=周日
       const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - 1); // 从前天开始
+      startDate.setDate(today.getDate() - currentDayOfWeek); // 回到本周日
 
-      // 计算结束日期：显示 28 天（4 周）
+      // 计算结束日期：显示 35 天（5 周）
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 27);
+      endDate.setDate(endDate.getDate() + 34);
 
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
       const startDay = startDate.getDate();
-      const startDayOfWeek = startDate.getDay(); // 0=周日
 
       // 生成月历表
       let calendarHTML = `
@@ -729,9 +725,9 @@ async function loadActivities() {
                 <tbody>
       `;
 
-      // 生成日历行（4 行 = 28 天）
+      // 生成日历行（5 行 = 35 天）
       let currentDate = new Date(startDate);
-      for (let row = 0; row < 4; row++) {
+      for (let row = 0; row < 5; row++) {
         calendarHTML += '<tr>';
 
         for (let col = 0; col < 7; col++) {
