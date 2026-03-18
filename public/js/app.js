@@ -809,8 +809,15 @@ async function loadActivityManagement() {
     const data = await apiRequest('/activity/codes');
     const codes = data.codes || [];
 
+    // 处理用户和种子选手列表（将逗号分隔的字符串转换为数组）
+    const processedCodes = codes.map(code => ({
+      ...code,
+      users: code.users ? code.users.split(',') : [],
+      seeds: code.seeds ? code.seeds.split(',') : []
+    }));
+
     const tbody = document.getElementById('activityManagementList');
-    tbody.innerHTML = codes.map(code => `
+    tbody.innerHTML = processedCodes.map(code => `
       <tr>
         <td><strong>${code.code}</strong></td>
         <td>${code.name}</td>
@@ -825,8 +832,16 @@ async function loadActivityManagement() {
           </small>
         </td>
         <td>
-          <span class="badge bg-primary">${code.user_count || 0}用户</span>
-          <span class="badge bg-warning text-dark">${code.seed_count || 0}种子</span>
+          <small>
+            <div class="mb-1">
+              <span class="badge bg-primary">${code.user_count || 0} 用户</span>
+              <span class="badge bg-warning text-dark">${code.seed_count || 0} 种子</span>
+            </div>
+            <div class="text-muted" style="max-width: 150px; font-size: 0.85rem;">
+              ${code.users && code.users.length > 0 ? '👤 ' + code.users.slice(0, 3).join('、') + (code.users.length > 3 ? '...' : '') : '暂无用户'}
+            </div>
+            ${code.seeds && code.seeds.length > 0 ? '<div class="text-warning" style="font-size: 0.75rem;"><i class="bi bi-star-fill"></i> ' + code.seeds.join('、') + '</div>' : ''}
+          </small>
         </td>
         <td>
           <small>
@@ -858,7 +873,7 @@ async function loadActivityManagement() {
       </tr>
     `).join('');
 
-    if (codes.length === 0) {
+    if (processedCodes.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无活动代码</td></tr>';
     }
   } catch (error) {

@@ -25,7 +25,9 @@ class ActivityCodeModel {
     return await db.all(`
       SELECT ac.*, u.name as creator_name,
         (SELECT COUNT(*) FROM activity_code_users WHERE activity_code_id = ac.id) as user_count,
-        (SELECT COUNT(*) FROM activity_code_seeds WHERE activity_code_id = ac.id) as seed_count
+        (SELECT COUNT(*) FROM activity_code_seeds WHERE activity_code_id = ac.id) as seed_count,
+        (SELECT GROUP_CONCAT(u2.name, ',') FROM activity_code_users acu JOIN users u2 ON acu.user_id = u2.id WHERE acu.activity_code_id = ac.id) as users,
+        (SELECT GROUP_CONCAT(u3.name, ',') FROM activity_code_seeds acs JOIN users u3 ON acs.user_id = u3.id WHERE acs.activity_code_id = ac.id) as seeds
       FROM activity_codes ac
       LEFT JOIN users u ON ac.created_by = u.id
       ORDER BY ac.created_at DESC
