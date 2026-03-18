@@ -79,7 +79,8 @@ class TeamBuilderService {
       return null;
     }
 
-    // 【新增】如果指定了活动代码，只允许关联人员参与组队
+    // 【新增】如果指定了活动代码，根据活动规则进行组队
+    let activityRules = null;
     let associatedUserIds = [];
     if (activityCode) {
       const ActivityCodeModel = require('../models/ActivityCode');
@@ -89,42 +90,73 @@ class TeamBuilderService {
         return null;
       }
 
+      // 获取活动规则
+      activityRules = {
+        minPlayers: activityCodeData.min_players || 4,
+        maxPlayers: activityCodeData.max_players || 4,
+        playersPerGame: activityCodeData.players_per_game || 4,
+        requireSeed: activityCodeData.require_seed === 1,
+        seedRequired: activityCodeData.seed_required === 1
+      };
+
       // 获取活动代码的所有关联用户 ID
       associatedUserIds = await ActivityCodeModel.getUserIdsByCodeId(activityCodeData.id);
-      
-      // 检查关联用户数量
-      if (associatedUserIds.length < 4) {
-        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动关联用户不足 4 人 (${associatedUserIds.length}人)，无法组队`);
+
+      // 检查关联用户数量（至少满足最少人数要求）
+      if (associatedUserIds.length < activityRules.minPlayers) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动关联用户不足 ${activityRules.minPlayers}人 (${associatedUserIds.length}人)，无法组队`);
         return null;
       }
 
       // 过滤出只有关联用户才能参与
       availableUsers = availableUsers.filter(u => associatedUserIds.includes(u.id));
-      
+
+      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动规则：最少${activityRules.minPlayers}人，最多${activityRules.maxPlayers}人，每局${activityRules.playersPerGame}人，需种子=${activityRules.requireSeed}，强制=${activityRules.seedRequired}`);
       console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动关联用户 ${associatedUserIds.length}人，当前可用关联用户 ${availableUsers.length}人`);
 
-      if (availableUsers.length < 4) {
-        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 可用关联用户不足 4 人，无法组队`);
+      if (availableUsers.length < activityRules.minPlayers) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 可用关联用户不足 ${activityRules.minPlayers}人，无法组队`);
         return null;
       }
     }
 
-    // 检查种子选手是否有空
-    const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
-    if (!seedAvailable) {
-      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 种子选手不可用，跳过`);
-      return null;
+    // 默认规则（如果没有活动规则）
+    if (!activityRules) {
+      activityRules = {
+        minPlayers: 4,
+        maxPlayers: 4,
+        playersPerGame: 4,
+        requireSeed: true,
+        seedRequired: true
+      };
+    }
+
+    // 检查种子选手（如果活动规则要求）
+    if (activityRules.requireSeed) {
+      const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
+      if (!seedAvailable) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 活动要求种子选手，但种子选手不可用，跳过`);
+        return null;
+      }
     }
 
     // 检查是否已有活动
     const existingActivity = await Activity.getActivityWithMembers(date, timeSlot);
-    if (existingActivity && existingActivity.member_count >= 4) {
-      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且已满 4 人，跳过`);
+    if (existingActivity && existingActivity.member_count >= activityRules.maxPlayers) {
+      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且已满 ${activityRules.maxPlayers} 人，跳过`);
       return null;
     }
 
     // 分离种子选手和普通用户
-    const regularUsers = availableUsers.filter(u => u.id !== seedUser.id);
+    let regularUsers = availableUsers.filter(u => u.id !== seedUser.id);
+
+    // 如果活动规则不要求种子选手强制参与，则种子选手作为普通用户参与
+    if (!activityRules.seedRequired && seedUser) {
+      const seedAvailable = availableUsers.some(u => u.id === seedUser.id);
+      if (seedAvailable) {
+        regularUsers = availableUsers.filter(u => u.id !== seedUser.id);
+      }
+    }
 
     // 对普通用户进行排序，优先选择：
     // 1. 参与次数少的
@@ -132,11 +164,17 @@ class TeamBuilderService {
     // 3. 还未参与过的（保证至少一次）
     const sortedUsers = await this.sortUsersByPriority(regularUsers, date);
 
-    // 选择前 3 名普通用户（加上种子选手共 4 人）
-    const selectedUsers = sortedUsers.slice(0, 3);
+    // 计算需要选择多少用户
+    let usersNeeded = activityRules.playersPerGame - 1; // 减去种子选手
+    if (!activityRules.seedRequired || !activityRules.requireSeed) {
+      usersNeeded = activityRules.playersPerGame;
+    }
 
-    if (selectedUsers.length < 3) {
-      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 可用普通用户不足 3 人`);
+    // 选择用户（根据活动规则）
+    const selectedUsers = sortedUsers.slice(0, usersNeeded);
+
+    if (selectedUsers.length < usersNeeded) {
+      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 可用普通用户不足 ${usersNeeded} 人`);
       return null;
     }
 
@@ -154,8 +192,14 @@ class TeamBuilderService {
       activityId = result.lastInsertRowid;
     }
 
-    // 添加成员（种子选手 + 3 名普通用户）
-    const allMemberIds = [seedUser.id, ...selectedUsers.map(u => u.id)];
+    // 添加成员（根据活动规则）
+    let allMemberIds = [];
+    if (activityRules.seedRequired && activityRules.requireSeed) {
+      allMemberIds = [seedUser.id, ...selectedUsers.map(u => u.id)];
+    } else {
+      allMemberIds = selectedUsers.map(u => u.id);
+    }
+
     await Activity.addMembersBatch(activityId, allMemberIds);
 
     // 记录参与历史
