@@ -457,7 +457,7 @@ async function submitAvailability() {
     showToast(msg, 'success');
 
     // 保持当前选中的活动代码，重新加载申报数据
-    loadAvailabilityDates();
+    await loadAvailabilityDates();
   } catch (error) {
     showToast('提交失败：' + error.message, 'danger');
   }
