@@ -442,6 +442,14 @@ async function submitAvailability() {
   }
 
   try {
+    // 显示加载状态
+    const submitBtn = event?.target;
+    const originalText = submitBtn?.innerHTML;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 提交中...';
+    }
+
     const data = await apiRequest('/availability/batch', {
       method: 'POST',
       body: JSON.stringify({
@@ -458,8 +466,20 @@ async function submitAvailability() {
 
     // 保持当前选中的活动代码，重新加载申报数据
     await loadAvailabilityDates();
+
+    // 恢复按钮状态
+    if (submitBtn && originalText) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
+    }
   } catch (error) {
     showToast('提交失败：' + error.message, 'danger');
+    // 恢复按钮状态
+    const submitBtn = event?.target;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> 提交申报';
+    }
   }
 }
 
