@@ -869,27 +869,46 @@ async function loadActivityManagement() {
     tbody.innerHTML = processedCodes.map(code => `
       <tr>
         <td><strong>${code.code}</strong></td>
-        <td>${code.name}</td>
-        <td>${code.description || '-'}</td>
         <td>
-          <small>
-            <div>最少：${code.min_players}人</div>
-            <div>最多：${code.max_players}人</div>
-            <div>每局：${code.players_per_game}人</div>
-            <div>${code.require_seed ? '需种子' : '无需种子'}</div>
-            <div>${code.seed_required ? '强制参与' : '可选'}</div>
-          </small>
+          <div class="fw-bold">${code.name}</div>
+          <small class="text-muted">${code.description || '-'}</small>
+        </td>
+        <td>
+          <div class="mb-2">
+            <div class="d-flex align-items-center mb-1">
+              <i class="bi bi-star-fill text-warning me-1"></i>
+              <strong>种子选手：</strong>
+            </div>
+            <div class="ms-4">
+              ${code.seeds && code.seeds.length > 0 
+                ? code.seeds.map(name => `<span class="badge bg-warning text-dark me-1 mb-1"><i class="bi bi-star-fill"></i> ${name}</span>`).join('')
+                : '<span class="text-muted small">未设置</span>'}
+            </div>
+          </div>
+          <div class="mt-2">
+            <div class="d-flex align-items-center mb-1">
+              <i class="bi bi-people-fill text-primary me-1"></i>
+              <strong>参与用户：</strong>
+              <span class="badge bg-primary ms-1">${code.users.length}</span>
+            </div>
+            <div class="ms-4">
+              ${code.users && code.users.length > 0 
+                ? code.users.slice(0, 5).map(name => `<span class="badge bg-primary me-1 mb-1">${name}</span>`).join('') + (code.users.length > 5 ? `<span class="text-muted small">等${code.users.length}人</span>` : '')
+                : '<span class="text-muted small">暂无用户</span>'}
+            </div>
+          </div>
         </td>
         <td>
           <small>
+            <div class="mb-1"><i class="bi bi-people"></i> 最少：${code.min_players}人</div>
+            <div class="mb-1"><i class="bi bi-people-fill"></i> 最多：${code.max_players}人</div>
+            <div class="mb-1"><i class="bi bi-trophy"></i> 每局：${code.players_per_game}人</div>
             <div class="mb-1">
-              <span class="badge bg-primary">${code.user_count || 0} 用户</span>
-              <span class="badge bg-warning text-dark">${code.seed_count || 0} 种子</span>
+              ${code.require_seed ? '<span class="badge bg-success">需种子</span>' : '<span class="badge bg-secondary">无需种子</span>'}
             </div>
-            <div class="text-muted" style="max-width: 150px; font-size: 0.85rem;">
-              ${code.users && code.users.length > 0 ? '👤 ' + code.users.slice(0, 3).join('、') + (code.users.length > 3 ? '...' : '') : '暂无用户'}
+            <div>
+              ${code.seed_required ? '<span class="badge bg-warning text-dark">强制参与</span>' : '<span class="badge bg-light text-dark">可选</span>'}
             </div>
-            ${code.seeds && code.seeds.length > 0 ? '<div class="text-warning" style="font-size: 0.75rem;"><i class="bi bi-star-fill"></i> ' + code.seeds.join('、') + '</div>' : ''}
           </small>
         </td>
         <td>
@@ -923,7 +942,7 @@ async function loadActivityManagement() {
     `).join('');
 
     if (processedCodes.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无活动代码</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无活动代码</td></tr>';
     }
   } catch (error) {
     showToast('加载活动管理失败：' + error.message, 'danger');
