@@ -5,10 +5,10 @@ const Activity = require('../models/Activity');
 const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
 // 执行自动组队（活动管理员）
-router.post('/build', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/build', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const result = TeamBuilder.buildTeams();
-    
+    const result = await TeamBuilder.buildTeams();
+
     if (result.success) {
       res.json({
         message: `组队完成，共创建 ${result.results.length} 个活动`,
@@ -24,18 +24,18 @@ router.post('/build', authMiddleware, activityAdminMiddleware, (req, res) => {
 });
 
 // 为特定日期组队（管理员）
-router.post('/build/:date', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.post('/build/:date', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { date } = req.params;
-    
+
     // 验证日期格式
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
       return res.status(400).json({ error: '日期格式不正确' });
     }
 
-    const result = TeamBuilder.buildTeamForDate(date);
-    
+    const result = await TeamBuilder.buildTeamForDate(date);
+
     if (result.success) {
       res.json({
         message: `日期 ${date} 组队完成，共创建 ${result.results.length} 个活动`,
@@ -117,9 +117,9 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
 });
 
 // 获取组队统计
-router.get('/stats', authMiddleware, activityAdminMiddleware, (req, res) => {
+router.get('/stats', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
-    const stats = TeamBuilder.getTeamStats();
+    const stats = await TeamBuilder.getTeamStats();
     res.json({ stats });
   } catch (error) {
     console.error('获取统计信息错误:', error);

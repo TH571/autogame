@@ -24,14 +24,14 @@ class TeamBuilderService {
    * 执行自动组队
    * 遍历未来 14 天，检查每个时间段，进行组队
    */
-  buildTeams(activityCode = null) {
+  async buildTeams(activityCode = null) {
     const results = [];
     const today = new Date();
     const endDate = new Date(today);
     endDate.setDate(today.getDate() + 13); // 未来 14 天
 
     // 获取种子选手
-    const seedUser = User.findSeed();
+    const seedUser = await User.findSeed();
     if (!seedUser) {
       console.log('未找到种子选手，无法进行组队');
       return { success: false, error: '未找到种子选手' };
@@ -50,7 +50,7 @@ class TeamBuilderService {
 
       // 检查三个时间段
       for (let timeSlot = 1; timeSlot <= 3; timeSlot++) {
-        const result = this.buildTeamForSlot(dateStr, timeSlot, seedUser, activityCode);
+        const result = await this.buildTeamForSlot(dateStr, timeSlot, seedUser, activityCode);
         if (result) {
           results.push(result);
         }
@@ -64,15 +64,15 @@ class TeamBuilderService {
   /**
    * 为特定日期和时间段组建队伍
    */
-  buildTeamForSlot(date, timeSlot, seedUser, activityCode = null) {
+  async buildTeamForSlot(date, timeSlot, seedUser, activityCode = null) {
     // 获取该时间段所有可用的用户
     let availableUsers;
     if (activityCode) {
-      availableUsers = Availability.getByDateSlotAndCode(date, timeSlot, activityCode);
+      availableUsers = await Availability.getByDateSlotAndCode(date, timeSlot, activityCode);
     } else {
-      availableUsers = Availability.getByDateAndSlot(date, timeSlot);
+      availableUsers = await Availability.getByDateAndSlot(date, timeSlot);
     }
-    
+
     if (availableUsers.length < 4) {
       // 不足 4 人，无法组队
       console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 只有 ${availableUsers.length} 人可用，不足 4 人`);
@@ -87,7 +87,7 @@ class TeamBuilderService {
     }
 
     // 检查是否已有活动
-    const existingActivity = Activity.getActivityWithMembers(date, timeSlot);
+    const existingActivity = await Activity.getActivityWithMembers(date, timeSlot);
     if (existingActivity && existingActivity.member_count >= 4) {
       console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且已满 4 人，跳过`);
       return null;
@@ -100,7 +100,7 @@ class TeamBuilderService {
     // 1. 参与次数少的
     // 2. 最近未参与的（避免连续）
     // 3. 还未参与过的（保证至少一次）
-    const sortedUsers = this.sortUsersByPriority(regularUsers, date);
+    const sortedUsers = await this.sortUsersByPriority(regularUsers, date);
 
     // 选择前 3 名普通用户（加上种子选手共 4 人）
     const selectedUsers = sortedUsers.slice(0, 3);
@@ -115,18 +115,18 @@ class TeamBuilderService {
     if (existingActivity) {
       activityId = existingActivity.id;
       // 清空现有成员
-      const members = Activity.getMembers(activityId);
+      const members = await Activity.getMembers(activityId);
       for (const member of members) {
-        Activity.removeMember(activityId, member.id);
+        await Activity.removeMember(activityId, member.id);
       }
     } else {
-      const result = Activity.create(date, timeSlot, 'confirmed');
+      const result = await Activity.create(date, timeSlot, 'confirmed');
       activityId = result.lastInsertRowid;
     }
 
     // 添加成员（种子选手 + 3 名普通用户）
     const allMemberIds = [seedUser.id, ...selectedUsers.map(u => u.id)];
-    Activity.addMembersBatch(activityId, allMemberIds);
+    await Activity.addMembersBatch(activityId, allMemberIds);
 
     // 记录参与历史
     const transaction = this.db.transaction(() => {
@@ -134,7 +134,7 @@ class TeamBuilderService {
         Activity.addParticipationRecord(userId, activityId, date, timeSlot);
       }
     });
-    transaction();
+    await transaction();
 
     console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 组队成功，成员：${seedUser.name} + ${selectedUsers.map(u => u.name).join(', ')}`);
 
@@ -157,14 +157,14 @@ class TeamBuilderService {
    * 2. 参与次数少的优先
    * 3. 最近参与日期较早的优先（避免连续）
    */
-  sortUsersByPriority(users, targetDate) {
+  async sortUsersByPriority(users, targetDate) {
     const targetDateObj = new Date(targetDate);
-    
+
     // 为每个用户计算优先级分数
-    const usersWithScore = users.map(user => {
-      const participationCount = Activity.getUserParticipationCount(user.id);
-      const lastParticipationDate = Activity.getUserLastParticipationDate(user.id);
-      
+    const usersWithScore = await Promise.all(users.map(async (user) => {
+      const participationCount = await Activity.getUserParticipationCount(user.id);
+      const lastParticipationDate = await Activity.getUserLastParticipationDate(user.id);
+
       // 计算与上次参与日期间隔的天数
       let daysSinceLast = 999;
       if (lastParticipationDate) {
@@ -175,9 +175,10 @@ class TeamBuilderService {
       // 检查前一天是否参与（避免连续）
       const prevDay = new Date(targetDateObj);
       prevDay.setDate(targetDateObj.getDate() - 1);
-      const participatedPrevDay = Activity.hasParticipated(user.id, this.formatDate(prevDay), 1) ||
-                                   Activity.hasParticipated(user.id, this.formatDate(prevDay), 2) ||
-                                   Activity.hasParticipated(user.id, this.formatDate(prevDay), 3);
+      const prevDayStr = this.formatDate(prevDay);
+      const participatedPrevDay = (await Activity.hasParticipated(user.id, prevDayStr, 1)) ||
+                                   (await Activity.hasParticipated(user.id, prevDayStr, 2)) ||
+                                   (await Activity.hasParticipated(user.id, prevDayStr, 3));
 
       // 计算优先级分数（分数越低优先级越高）
       let score = 0;
@@ -205,7 +206,7 @@ class TeamBuilderService {
         daysSinceLast,
         participatedPrevDay
       };
-    });
+    }));
 
     // 按分数排序
     usersWithScore.sort((a, b) => a.score - b.score);
@@ -216,11 +217,11 @@ class TeamBuilderService {
   /**
    * 获取组队统计信息
    */
-  getTeamStats() {
-    const users = User.findAll();
-    const stats = users.map(user => {
-      const count = Activity.getUserParticipationCount(user.id);
-      const history = Activity.getUserParticipationHistory(user.id);
+  async getTeamStats() {
+    const users = await User.findAll();
+    const stats = await Promise.all(users.map(async (user) => {
+      const count = await Activity.getUserParticipationCount(user.id);
+      const history = await Activity.getUserParticipationHistory(user.id);
       return {
         id: user.id,
         name: user.name,
@@ -230,7 +231,7 @@ class TeamBuilderService {
         participationCount: count,
         history
       };
-    });
+    }));
 
     return stats;
   }
@@ -238,16 +239,16 @@ class TeamBuilderService {
   /**
    * 手动触发某一天的组队
    */
-  buildTeamForDate(date) {
+  async buildTeamForDate(date) {
     const results = [];
-    const seedUser = User.findSeed();
-    
+    const seedUser = await User.findSeed();
+
     if (!seedUser) {
       return { success: false, error: '未找到种子选手' };
     }
 
     for (let timeSlot = 1; timeSlot <= 3; timeSlot++) {
-      const result = this.buildTeamForSlot(date, timeSlot, seedUser);
+      const result = await this.buildTeamForSlot(date, timeSlot, seedUser);
       if (result) {
         results.push(result);
       }
