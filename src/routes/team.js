@@ -126,6 +126,25 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
 
     const activities = await Promise.all(history.map(async h => {
       const members = await Activity.getMembers(h.id);
+      
+      // 获取活动代码和名称
+      let activityCode = '';
+      let activityName = '';
+      if (members.length > 0) {
+        const firstMember = members[0];
+        const Availability = require('../models/Availability');
+        const availability = await Availability.checkAvailability(firstMember.id, h.date, h.time_slot);
+        if (availability && availability.activity_code) {
+          activityCode = availability.activity_code;
+          // 获取活动名称
+          const ActivityCode = require('../models/ActivityCode');
+          const activityCodeData = await ActivityCode.getByCode(availability.activity_code);
+          if (activityCodeData) {
+            activityName = activityCodeData.name;
+          }
+        }
+      }
+      
       return {
         id: h.id,
         date: h.date,
@@ -133,6 +152,8 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
         timeSlotText: getTimeSlotText(h.time_slot),
         status: h.status,
         createdAt: h.created_at,
+        activity_code: activityCode,
+        activity_name: activityName,
         members: members.map(m => ({
           id: m.id,
           name: m.name,
