@@ -142,9 +142,35 @@ class TeamBuilderService {
 
     // 检查是否已有活动
     const existingActivity = await Activity.getActivityWithMembers(date, timeSlot);
-    if (existingActivity && existingActivity.member_count >= activityRules.maxPlayers) {
-      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且已满 ${activityRules.maxPlayers} 人，跳过`);
-      return null;
+    if (existingActivity) {
+      // 如果已有活动且人数达到每局人数要求，跳过
+      if (existingActivity.member_count >= activityRules.playersPerGame) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且人数已达 ${existingActivity.member_count} 人，跳过`);
+        return null;
+      }
+      
+      // 如果已有活动但人数不足，检查是否是因为人员变动
+      // 获取现有成员
+      const existingMembers = await Activity.getMembers(existingActivity.id);
+      const existingMemberIds = existingMembers.map(m => m.id);
+      
+      // 检查现有成员是否都还有空（申报了该时间段）
+      const allMembersStillAvailable = existingMemberIds.every(id => 
+        availableUsers.some(u => u.id === id)
+      );
+      
+      if (allMembersStillAvailable) {
+        console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动且成员都还有空，不重新组队`);
+        return null;
+      }
+      
+      // 人员有变动，需要重新组队
+      console.log(`${date} ${this.getTimeSlotText(timeSlot)}: 已有活动但人员有变动，重新组队`);
+      // 清空现有成员
+      for (const member of existingMembers) {
+        await Activity.removeMember(existingActivity.id, member.id);
+      }
+      activityId = existingActivity.id;
     }
 
     // 分离种子选手和普通用户

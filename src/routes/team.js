@@ -127,6 +127,49 @@ router.get('/stats', authMiddleware, activityAdminMiddleware, async (req, res) =
   }
 });
 
+// 添加活动成员（管理员）
+router.post('/activities/:id/members', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: '用户列表不能为空' });
+    }
+
+    await Activity.addMembersBatch(id, userIds);
+
+    res.json({ message: `成功添加 ${userIds.length} 名成员` });
+  } catch (error) {
+    console.error('添加成员错误:', error);
+    res.status(500).json({ error: '添加成员失败' });
+  }
+});
+
+// 移除活动成员（管理员）
+router.delete('/activities/:id/members/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    await Activity.removeMember(id, userId);
+    res.json({ message: '成员已移除' });
+  } catch (error) {
+    console.error('移除成员错误:', error);
+    res.status(500).json({ error: '移除成员失败' });
+  }
+});
+
+// 删除活动（管理员）
+router.delete('/activities/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Activity.delete(id);
+    res.json({ message: '活动已删除' });
+  } catch (error) {
+    console.error('删除活动错误:', error);
+    res.status(500).json({ error: '删除活动失败' });
+  }
+});
+
 // 辅助函数
 function getTimeSlotText(slot) {
   const map = { 1: '下午', 2: '晚上', 3: '下午连晚上' };

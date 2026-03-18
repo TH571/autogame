@@ -548,10 +548,10 @@ async function loadActivities() {
       `).join('');
     }
     
-    // 所有活动
+    // 所有活动（管理员可编辑）
     const allData = await apiRequest('/team/activities');
     const allContainer = document.getElementById('allActivitiesList');
-    
+
     if (allData.activities.length === 0) {
       allContainer.innerHTML = `
         <div class="empty-state">
@@ -561,33 +561,129 @@ async function loadActivities() {
         </div>
       `;
     } else {
+      const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
+      
       allContainer.innerHTML = allData.activities.map(a => `
         <div class="card activity-card ${a.status}">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <div>
                 <h6 class="mb-1">
-                  <i class="bi bi-calendar3"></i> ${a.date} 
+                  <i class="bi bi-calendar3"></i> ${a.date}
                   <span class="badge badge-time badge-${getTimeSlotClass(a.timeSlot)}">${a.timeSlotText}</span>
                 </h6>
               </div>
-              <span class="badge bg-${a.status === 'confirmed' ? 'success' : 'secondary'}">
-                ${getStatusText(a.status)}
-              </span>
+              <div>
+                <span class="badge bg-${a.status === 'confirmed' ? 'success' : 'secondary'} me-2">
+                  ${a.memberCount}/${a.members.length} 人
+                </span>
+                ${isAdmin ? `
+                  <button class="btn btn-outline-danger btn-sm" onclick="deleteActivity(${a.id})" title="删除活动">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                ` : ''}
+              </div>
             </div>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 mb-3">
               ${a.members.map(m => `
-                <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'}">
+                <span class="badge bg-${m.isSeed ? 'warning' : 'secondary'} d-inline-flex align-items-center">
                   ${m.isSeed ? '🌱' : ''}${m.name}${m.isSeed ? ' (种子)' : ''}
+                  ${isAdmin ? `<i class="bi bi-x ms-2" style="cursor: pointer;" onclick="removeMember(${a.id}, ${m.id}, '${m.name}')"></i>` : ''}
                 </span>
               `).join('')}
             </div>
+            ${isAdmin ? `
+              <div class="border-top pt-2">
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" onclick="showAddMemberModal(${a.id}, '${a.date}', '${a.timeSlotText}')">
+                    <i class="bi bi-person-plus"></i> 添加成员
+                  </button>
+                  <button class="btn btn-outline-success btn-sm" onclick="rebuildActivity(${a.id}, '${a.date}', ${a.time_slot})">
+                    <i class="bi bi-arrow-clockwise"></i> 重新组队
+                  </button>
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       `).join('');
     }
   } catch (error) {
     showToast('加载活动失败：' + error.message, 'danger');
+  }
+}
+
+// 删除活动
+async function deleteActivity(activityId) {
+  if (!confirm('确定要删除这个活动吗？')) return;
+  
+  try {
+    await apiRequest(`/team/activities/${activityId}`, { method: 'DELETE' });
+    showToast('活动已删除', 'success');
+    loadActivities();
+  } catch (error) {
+    showToast('删除失败：' + error.message, 'danger');
+  }
+}
+
+// 移除成员
+async function removeMember(activityId, userId, userName) {
+  if (!confirm(`确定要移除 ${userName} 吗？`)) return;
+  
+  try {
+    await apiRequest(`/team/activities/${activityId}/members/${userId}`, { method: 'DELETE' });
+    showToast('成员已移除', 'success');
+    loadActivities();
+  } catch (error) {
+    showToast('移除失败：' + error.message, 'danger');
+  }
+}
+
+// 显示添加成员模态框
+async function showAddMemberModal(activityId, date, timeSlotText) {
+  try {
+    // 获取所有用户
+    const usersData = await apiRequest('/activity/users/all');
+    const allUsers = usersData.users || [];
+    
+    // 获取活动现有成员
+    const activitiesData = await apiRequest('/team/activities');
+    const activity = activitiesData.activities.find(a => a.id === activityId);
+    const existingMemberIds = new Set((activity?.members || []).map(m => m.id));
+    
+    // 过滤出未加入的用户
+    const availableUsers = allUsers.filter(u => !existingMemberIds.has(u.id));
+    
+    if (availableUsers.length === 0) {
+      showToast('所有用户都已加入该活动', 'warning');
+      return;
+    }
+    
+    // 简单处理：直接添加第一个可用用户
+    const userId = availableUsers[0].id;
+    await apiRequest(`/team/activities/${activityId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userIds: [userId] })
+    });
+    
+    showToast(`已添加 ${availableUsers[0].name}`, 'success');
+    loadActivities();
+  } catch (error) {
+    showToast('添加失败：' + error.message, 'danger');
+  }
+}
+
+// 重新组队
+async function rebuildActivity(activityId, date, timeSlot) {
+  if (!confirm('确定要重新组队吗？这将清空现有成员并重新选择。')) return;
+  
+  try {
+    // 调用组队 API 为特定日期组队
+    const result = await apiRequest(`/team/build/${date}`, { method: 'POST' });
+    showToast('重新组队完成', 'success');
+    loadActivities();
+  } catch (error) {
+    showToast('重新组队失败：' + error.message, 'danger');
   }
 }
 
