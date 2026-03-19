@@ -3275,21 +3275,19 @@ async function batchApproveRequests() {
     // 标记组队请求和组队结果已更新
     markDataUpdated('requests');
     markDataUpdated('activities');
-    
+
     // 强制刷新组队结果页面数据
-    window.lastActivitiesLoadTime = 0; // 清除缓存时间戳
-    
+    window.forceRefreshActivities = true;
+
     let message = `批量处理完成！\n✅ 批准：${successCount} 个`;
     if (totalActivities > 0) message += `\n📋 创建活动：${totalActivities} 个`;
     if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
-    
+
     showToast(message, successCount > 0 ? 'success' : 'danger');
-    
+
     // 自动刷新组队结果页面
     if (totalActivities > 0) {
       setTimeout(() => {
-        // 清除组队结果页面的缓存
-        window.forceRefreshActivities = true;
         showPage('activities');
       }, 2000);
     }
@@ -3364,14 +3362,12 @@ async function approveRebuildRequest(requestId) {
     markDataUpdated('activities');
 
     // 强制刷新组队结果页面数据
-    window.lastActivitiesLoadTime = 0; // 清除缓存时间戳
+    window.forceRefreshActivities = true;
 
     // 自动刷新组队结果页面
     if (activityCount > 0) {
-      // 2 秒后跳转到组队结果页面，确保数据已更新
+      // 2 秒后跳转到组队结果页面，确保后端数据处理完成
       setTimeout(() => {
-        // 清除组队结果页面的缓存
-        window.forceRefreshActivities = true;
         showPage('activities');
       }, 2000);
     }
