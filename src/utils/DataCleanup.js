@@ -22,78 +22,48 @@ class DataCleanupService {
       activityCodes: 0
     };
 
-    const transaction = this.db.transaction(() => {
+    try {
       // 1. 清理无用的时间申报（activity_code 不存在）
-      results.availability = this.db.run(`
+      const availResult = await this.db.run(`
         DELETE FROM availability
         WHERE activity_code IS NOT NULL
         AND activity_code NOT IN (SELECT code FROM activity_codes)
-      `).changes;
+      `);
+      results.availability = availResult.changes || 0;
 
       // 2. 清理无用的组队请求（activity_code 不存在）
-      results.teamRebuildRequests = this.db.run(`
+      const reqResult = await this.db.run(`
         DELETE FROM team_rebuild_requests
         WHERE activity_code NOT IN (SELECT code FROM activity_codes)
-      `).changes;
+      `);
+      results.teamRebuildRequests = reqResult.changes || 0;
 
       // 3. 清理无用的活动邀请码（activity_code_id 不存在）
-      results.activityInvites = this.db.run(`
+      const inviteResult = await this.db.run(`
         DELETE FROM activity_invites
         WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
-      `).changes;
+      `);
+      results.activityInvites = inviteResult.changes || 0;
 
       // 4. 清理无用的活动代码用户关联（activity_code_id 不存在）
-      const activityCodeUsers = this.db.run(`
+      const userResult = await this.db.run(`
         DELETE FROM activity_code_users
         WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
-      `).changes;
+      `);
+      results.activityCodes += userResult.changes || 0;
 
       // 5. 清理无用的活动代码种子选手关联（activity_code_id 不存在）
-      const activityCodeSeeds = this.db.run(`
+      const seedResult = await this.db.run(`
         DELETE FROM activity_code_seeds
         WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
-      `).changes;
-
-      results.activityCodes = activityCodeUsers + activityCodeSeeds;
-    });
-
-    transaction();
+      `);
+      results.activityCodes += seedResult.changes || 0;
+    } catch (error) {
+      console.error('数据清理错误:', error);
+      throw error;
+    }
 
     return results;
-  }
-
-  /**
-   * 清理无用的时间申报
-   */
-  async cleanupAvailability() {
-    const result = this.db.run(`
-      DELETE FROM availability
-      WHERE activity_code IS NOT NULL
-      AND activity_code NOT IN (SELECT code FROM activity_codes)
-    `);
-    return result.changes;
-  }
-
-  /**
-   * 清理无用的组队请求
-   */
-  async cleanupTeamRebuildRequests() {
-    const result = this.db.run(`
-      DELETE FROM team_rebuild_requests
-      WHERE activity_code NOT IN (SELECT code FROM activity_codes)
-    `);
-    return result.changes;
-  }
-
-  /**
-   * 清理无用的活动邀请码
-   */
-  async cleanupActivityInvites() {
-    const result = this.db.run(`
-      DELETE FROM activity_invites
-      WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
-    `);
-    return result.changes;
   }
 
   /**
@@ -112,54 +82,56 @@ class DataCleanupService {
       orphanedActivityInvites: 0
     };
 
-    // 统计活动代码数量
-    report.activityCodes = this.db.prepare(`
-      SELECT COUNT(*) as count FROM activity_codes
-    `).get().count;
+    try {
+      // 统计活动代码数量
+      const acResult = await this.db.get(`SELECT COUNT(*) as count FROM activity_codes`);
+      report.activityCodes = acResult ? acResult.count : 0;
 
-    // 统计活动代码用户关联数量
-    report.activityCodeUsers = this.db.prepare(`
-      SELECT COUNT(*) as count FROM activity_code_users
-    `).get().count;
+      // 统计活动代码用户关联数量
+      const acuResult = await this.db.get(`SELECT COUNT(*) as count FROM activity_code_users`);
+      report.activityCodeUsers = acuResult ? acuResult.count : 0;
 
-    // 统计活动代码种子选手关联数量
-    report.activityCodeSeeds = this.db.prepare(`
-      SELECT COUNT(*) as count FROM activity_code_seeds
-    `).get().count;
+      // 统计活动代码种子选手关联数量
+      const acsResult = await this.db.get(`SELECT COUNT(*) as count FROM activity_code_seeds`);
+      report.activityCodeSeeds = acsResult ? acsResult.count : 0;
 
-    // 统计时间申报数量
-    report.availability = this.db.prepare(`
-      SELECT COUNT(*) as count FROM availability
-    `).get().count;
+      // 统计时间申报数量
+      const availResult = await this.db.get(`SELECT COUNT(*) as count FROM availability`);
+      report.availability = availResult ? availResult.count : 0;
 
-    // 统计组队请求数量
-    report.teamRebuildRequests = this.db.prepare(`
-      SELECT COUNT(*) as count FROM team_rebuild_requests
-    `).get().count;
+      // 统计组队请求数量
+      const reqResult = await this.db.get(`SELECT COUNT(*) as count FROM team_rebuild_requests`);
+      report.teamRebuildRequests = reqResult ? reqResult.count : 0;
 
-    // 统计活动邀请码数量
-    report.activityInvites = this.db.prepare(`
-      SELECT COUNT(*) as count FROM activity_invites
-    `).get().count;
+      // 统计活动邀请码数量
+      const inviteResult = await this.db.get(`SELECT COUNT(*) as count FROM activity_invites`);
+      report.activityInvites = inviteResult ? inviteResult.count : 0;
 
-    // 统计无用的时间申报
-    report.orphanedAvailability = this.db.prepare(`
-      SELECT COUNT(*) as count FROM availability
-      WHERE activity_code IS NOT NULL
-      AND activity_code NOT IN (SELECT code FROM activity_codes)
-    `).get().count;
+      // 统计无用的时间申报
+      const orphAvailResult = await this.db.get(`
+        SELECT COUNT(*) as count FROM availability
+        WHERE activity_code IS NOT NULL
+        AND activity_code NOT IN (SELECT code FROM activity_codes)
+      `);
+      report.orphanedAvailability = orphAvailResult ? orphAvailResult.count : 0;
 
-    // 统计无用的组队请求
-    report.orphanedTeamRebuildRequests = this.db.prepare(`
-      SELECT COUNT(*) as count FROM team_rebuild_requests
-      WHERE activity_code NOT IN (SELECT code FROM activity_codes)
-    `).get().count;
+      // 统计无用的组队请求
+      const orphReqResult = await this.db.get(`
+        SELECT COUNT(*) as count FROM team_rebuild_requests
+        WHERE activity_code NOT IN (SELECT code FROM activity_codes)
+      `);
+      report.orphanedTeamRebuildRequests = orphReqResult ? orphReqResult.count : 0;
 
-    // 统计无用的活动邀请码
-    report.orphanedActivityInvites = this.db.prepare(`
-      SELECT COUNT(*) as count FROM activity_invites
-      WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
-    `).get().count;
+      // 统计无用的活动邀请码
+      const orphInviteResult = await this.db.get(`
+        SELECT COUNT(*) as count FROM activity_invites
+        WHERE activity_code_id NOT IN (SELECT id FROM activity_codes)
+      `);
+      report.orphanedActivityInvites = orphInviteResult ? orphInviteResult.count : 0;
+    } catch (error) {
+      console.error('获取数据报告错误:', error);
+      throw error;
+    }
 
     return report;
   }
