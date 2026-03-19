@@ -3262,3 +3262,124 @@ async function markAllNotificationsAsRead() {
     showToast('标记失败：' + error.message, 'danger');
   }
 }
+
+// ========== 数据完整性管理 ==========
+
+// 显示数据完整性报告
+async function showDataIntegrityReport() {
+  try {
+    const data = await apiRequest('/data-cleanup/cleanup/report');
+    const report = data.report;
+
+    const div = document.getElementById('dataIntegrityReport');
+    div.innerHTML = `
+      <h6 class="mb-3">数据统计</h6>
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <div class="card bg-light">
+            <div class="card-body text-center">
+              <h3 class="text-primary">${report.activityCodes}</h3>
+              <small class="text-muted">活动代码</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card bg-light">
+            <div class="card-body text-center">
+              <h3 class="text-success">${report.availability}</h3>
+              <small class="text-muted">时间申报</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card bg-light">
+            <div class="card-body text-center">
+              <h3 class="text-info">${report.teamRebuildRequests}</h3>
+              <small class="text-muted">组队请求</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h6 class="mb-3 text-danger">无用数据（引用了不存在的活动代码）</h6>
+      <div class="list-group">
+        ${report.orphanedAvailability > 0 ? `
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-exclamation-circle text-danger"></i>
+              无用的时间申报
+            </div>
+            <span class="badge bg-danger rounded-pill">${report.orphanedAvailability} 条</span>
+          </div>
+        ` : ''}
+        ${report.orphanedTeamRebuildRequests > 0 ? `
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-exclamation-circle text-danger"></i>
+              无用的组队请求
+            </div>
+            <span class="badge bg-danger rounded-pill">${report.orphanedTeamRebuildRequests} 条</span>
+          </div>
+        ` : ''}
+        ${report.orphanedActivityInvites > 0 ? `
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-exclamation-circle text-danger"></i>
+              无用的活动邀请码
+            </div>
+            <span class="badge bg-danger rounded-pill">${report.orphanedActivityInvites} 条</span>
+          </div>
+        ` : ''}
+        ${report.orphanedAvailability === 0 && report.orphanedTeamRebuildRequests === 0 && report.orphanedActivityInvites === 0 ? `
+          <div class="list-group-item text-center text-success">
+            <i class="bi bi-check-circle"></i> 数据完整，没有无用数据
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    // 显示/隐藏清理按钮
+    const hasOrphaned = report.orphanedAvailability > 0 || report.orphanedTeamRebuildRequests > 0 || report.orphanedActivityInvites > 0;
+    document.getElementById('cleanupDataBtn').style.display = hasOrphaned ? 'inline-block' : 'none';
+
+    const modal = new bootstrap.Modal(document.getElementById('dataIntegrityModal'));
+    modal.show();
+  } catch (error) {
+    console.error('获取数据报告失败:', error);
+    showToast('获取数据报告失败：' + error.message, 'danger');
+  }
+}
+
+// 清理无用数据
+async function cleanupOrphanedData() {
+  if (!confirm('确定要清理所有无用数据吗？此操作不可恢复。')) return;
+
+  try {
+    const btn = document.getElementById('cleanupDataBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 清理中...';
+
+    const data = await apiRequest('/data-cleanup/cleanup', { method: 'POST' });
+    const results = data.results;
+
+    const total = results.availability + results.teamRebuildRequests + results.activityInvites + results.activityCodes;
+
+    let message = `清理完成！共删除 ${total} 条数据\n`;
+    if (results.availability > 0) message += `\n• 时间申报：${results.availability} 条`;
+    if (results.teamRebuildRequests > 0) message += `\n• 组队请求：${results.teamRebuildRequests} 条`;
+    if (results.activityInvites > 0) message += `\n• 活动邀请码：${results.activityInvites} 条`;
+    if (results.activityCodes > 0) message += `\n• 关联数据：${results.activityCodes} 条`;
+
+    showToast(message, 'success');
+
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('dataIntegrityModal'));
+    modal.hide();
+
+    // 重新加载活动列表
+    loadActivityManagement();
+  } catch (error) {
+    console.error('清理数据失败:', error);
+    showToast('清理失败：' + error.message, 'danger');
+  }
+}

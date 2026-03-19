@@ -365,9 +365,14 @@
       <div class="card shadow">
         <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
           <h5 class="mb-0"><i class="bi bi-qr-code"></i> 活动管理</h5>
-          <button class="btn btn-light btn-sm" onclick="showCreateCodeModal()">
-            <i class="bi bi-plus-lg"></i> 创建活动
-          </button>
+          <div>
+            <button class="btn btn-outline-info btn-sm me-2" onclick="showDataIntegrityReport()">
+              <i class="bi bi-shield-check"></i> 数据检查
+            </button>
+            <button class="btn btn-light btn-sm" onclick="showCreateCodeModal()">
+              <i class="bi bi-plus-lg"></i> 创建活动
+            </button>
+          </div>
         </div>
         <div class="card-body">
           <div class="alert alert-info mb-3">
@@ -980,8 +985,33 @@
     </div>
   </div>
 
+  <!-- 数据完整性检查模态框 -->
+  <div class="modal fade" id="dataIntegrityModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title"><i class="bi bi-shield-check"></i> 数据完整性检查</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            以下数据引用了不存在的活动代码，建议清理
+          </div>
+          <div id="dataIntegrityReport"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" onclick="cleanupOrphanedData()" id="cleanupDataBtn">
+            <i class="bi bi-trash"></i> 清理无用数据
+          </button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="/js/app.js?v=20260318050"></script>
+  <script src="/js/app.js?v=20260318052"></script>
 </body>
 </html>

@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const availabilityRoutes = require('./routes/availability');
 const teamRoutes = require('./routes/team');
 const teamRebuildRoutes = require('./routes/teamRebuild');
+const dataCleanupRoutes = require('./routes/dataCleanup');
 const adminRoutes = require('./routes/admin');
 const activityCodeRoutes = require('./routes/activityCode');
 
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/team-rebuild', teamRebuildRoutes);
+app.use('/api/data-cleanup', dataCleanupRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/activity', activityCodeRoutes);
 
