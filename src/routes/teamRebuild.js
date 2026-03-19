@@ -129,8 +129,28 @@ router.post('/requests/:id/approve', authMiddleware, activityAdminMiddleware, as
     // 更新状态为已批准
     await TeamRebuildRequest.updateStatus(id, 'approved', req.user.id, adminNote || '');
 
-    // 执行重新组队
-    const result = await TeamBuilder.buildTeamForDate(request.date);
+    // 删除该日期该活动代码的旧活动记录
+    const DatabaseAdapter = require('../utils/db-adapter');
+    const db = new DatabaseAdapter();
+    
+    // 删除旧的活动成员
+    await db.run(`
+      DELETE FROM activity_members 
+      WHERE activity_id IN (
+        SELECT id FROM activities 
+        WHERE date = ? AND time_slot = ?
+      )
+    `, [request.date, request.time_slot]);
+    
+    // 删除旧的活动
+    await db.run(`
+      DELETE FROM activities 
+      WHERE date = ? AND time_slot = ?
+    `, [request.date, request.time_slot]);
+
+    // 执行重新组队（只针对该活动代码）
+    const TeamBuilder = require('../utils/TeamBuilder');
+    const result = await TeamBuilder.buildTeams(request.activity_code);
 
     res.json({
       message: '请求已批准，重新组队完成',

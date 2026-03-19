@@ -3140,14 +3140,18 @@ async function batchApproveRequests() {
   try {
     let successCount = 0;
     let failCount = 0;
+    let totalActivities = 0;
     
     for (const id of selectedIds) {
       try {
-        await apiRequest(`/team-rebuild/requests/${id}/approve`, {
+        const result = await apiRequest(`/team-rebuild/requests/${id}/approve`, {
           method: 'POST',
           body: JSON.stringify({ adminNote: '管理员批量批准' })
         });
         successCount++;
+        if (result.activities) {
+          totalActivities += result.activities.length;
+        }
       } catch (error) {
         console.error(`批准请求 ${id} 失败:`, error);
         failCount++;
@@ -3155,9 +3159,17 @@ async function batchApproveRequests() {
     }
     
     let message = `批量处理完成！\n✅ 批准：${successCount} 个`;
+    if (totalActivities > 0) message += `\n📋 创建活动：${totalActivities} 个`;
     if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
     
     showToast(message, successCount > 0 ? 'success' : 'danger');
+    
+    // 自动刷新组队结果页面
+    if (totalActivities > 0) {
+      setTimeout(() => {
+        showPage('activities');
+      }, 1500);
+    }
     
     // 刷新列表
     loadRebuildRequests();
@@ -3220,6 +3232,14 @@ async function approveRebuildRequest(requestId) {
 
     const activityCount = result.activities ? result.activities.length : 0;
     showToast(`请求已批准，重新组队完成！共创建 ${activityCount} 个活动`, 'success');
+
+    // 自动刷新组队结果页面
+    if (activityCount > 0) {
+      // 如果当前在组队请求页面，提示用户查看结果
+      setTimeout(() => {
+        showPage('activities');
+      }, 1500);
+    }
 
     // 刷新列表
     loadRebuildRequests();
