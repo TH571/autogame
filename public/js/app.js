@@ -342,13 +342,13 @@ async function loadAvailabilityDates() {
 
     console.log('[loadAvailabilityDates] API 返回数据:', datesData.dates.length, '天');
 
-    // 获取已组队的活动列表
-    const activitiesData = await apiRequest('/team/activities');
-    const activities = activitiesData.activities || [];
+    // 获取当前用户的组队活动列表
+    const myActivitiesData = await apiRequest('/team/activities/my');
+    const myActivities = myActivitiesData.activities || [];
     
-    // 构建已组队的时间段映射（只匹配当前活动代码）
+    // 构建已组队的时间段映射（只匹配当前用户和当前活动代码）
     const scheduledMap = {};
-    activities.forEach(activity => {
+    myActivities.forEach(activity => {
       // 检查活动是否属于当前活动代码
       if (activity.activity_code === activityCode) {
         const key = `${activity.date}-${activity.time_slot}`;
