@@ -1,5 +1,7 @@
 // ========== 全局更新通知系统 ==========
 
+// ========== 全局数据更新系统 ==========
+
 // 全局更新标记
 window.dataUpdateFlags = {
   availability: false,  // 时间申报有更新
@@ -11,6 +13,7 @@ window.dataUpdateFlags = {
 function markDataUpdated(type) {
   if (window.dataUpdateFlags[type] !== undefined) {
     window.dataUpdateFlags[type] = true;
+    console.log(`[数据更新] ${type} 已标记为需要更新`);
   }
   // 显示更新提示
   showUpdateNotification(type);
@@ -23,7 +26,7 @@ function showUpdateNotification(type) {
     activities: '组队结果',
     requests: '组队请求'
   };
-  
+
   const toast = document.createElement('div');
   toast.className = 'position-fixed top-0 end-0 m-3 alert alert-info shadow-lg';
   toast.style.zIndex = '9999';
@@ -32,16 +35,13 @@ function showUpdateNotification(type) {
       <i class="bi bi-info-circle-fill me-2"></i>
       <div>
         <strong>${typeNames[type] || '数据'} 已更新</strong>
-        <br><small>点击刷新查看最新数据</small>
+        <br><small>页面将自动刷新</small>
       </div>
       <button type="button" class="btn-close ms-3" onclick="this.parentElement.remove()"></button>
     </div>
   `;
-  toast.onclick = () => {
-    location.reload();
-  };
   document.body.appendChild(toast);
-  
+
   // 3 秒后自动消失
   setTimeout(() => {
     if (toast.parentElement) {
@@ -53,29 +53,40 @@ function showUpdateNotification(type) {
 // 检查并刷新数据
 function checkAndRefreshData() {
   const flags = window.dataUpdateFlags;
-  
+  let refreshed = false;
+
   if (flags.availability) {
-    if (document.getElementById('availabilityPage') && 
-        !document.getElementById('availabilityPage').classList.contains('d-none')) {
+    const availabilityPage = document.getElementById('availabilityPage');
+    if (availabilityPage && !availabilityPage.classList.contains('d-none')) {
+      console.log('[数据更新] 自动刷新时间申报');
       loadAvailabilityDates();
+      flags.availability = false;
+      refreshed = true;
     }
-    flags.availability = false;
   }
-  
+
   if (flags.activities) {
-    if (document.getElementById('activitiesPage') && 
-        !document.getElementById('activitiesPage').classList.contains('d-none')) {
+    const activitiesPage = document.getElementById('activitiesPage');
+    if (activitiesPage && !activitiesPage.classList.contains('d-none')) {
+      console.log('[数据更新] 自动刷新组队结果');
       loadActivities();
+      flags.activities = false;
+      refreshed = true;
     }
-    flags.activities = false;
   }
-  
+
   if (flags.requests) {
-    if (document.getElementById('rebuildRequestsPage') && 
-        !document.getElementById('rebuildRequestsPage').classList.contains('d-none')) {
+    const rebuildRequestsPage = document.getElementById('rebuildRequestsPage');
+    if (rebuildRequestsPage && !rebuildRequestsPage.classList.contains('d-none')) {
+      console.log('[数据更新] 自动刷新组队请求');
       loadRebuildRequests();
+      flags.requests = false;
+      refreshed = true;
     }
-    flags.requests = false;
+  }
+
+  if (refreshed) {
+    console.log('[数据更新] 完成刷新');
   }
 }
 
@@ -425,26 +436,13 @@ async function loadAvailabilityDates() {
     // 传递活动代码参数到 API
     const datesData = await apiRequest(`/availability/dates/next14?activityCode=${encodeURIComponent(activityCode)}`);
 
-    console.log('[loadAvailabilityDates] API 返回数据:', datesData.dates.length, '天');
-
     // 获取当前用户的组队活动列表
     const myActivitiesData = await apiRequest('/team/activities/my');
     const myActivities = myActivitiesData.activities || [];
-    
-    console.log('[loadAvailabilityDates] 当前活动代码:', activityCode);
-    console.log('[loadAvailabilityDates] 用户活动:', myActivities.length, '个');
 
     // 构建已组队的时间段映射（只匹配当前用户和当前活动代码）
     const scheduledMap = {};
     myActivities.forEach(activity => {
-      console.log('[loadAvailabilityDates] 活动检查:', {
-        id: activity.id,
-        date: activity.date,
-        timeSlot: activity.timeSlot,
-        time_slot: activity.time_slot,
-        activity_code: activity.activity_code
-      });
-      
       // 检查活动是否属于当前活动代码
       if (activity.activity_code === activityCode) {
         const timeSlot = activity.timeSlot || activity.time_slot;
@@ -454,11 +452,8 @@ async function loadAvailabilityDates() {
           memberCount: memberCount,
           members: activity.members || []
         };
-        console.log(`[loadAvailabilityDates] 已组队：${key} (${memberCount}人)`);
       }
     });
-    
-    console.log('[loadAvailabilityDates] 已组队映射:', scheduledMap);
 
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
@@ -608,8 +603,6 @@ async function submitAvailability() {
       })
     });
 
-    console.log('[提交申报] 返回数据:', data);
-
     // 检查是否有时间冲突错误
     if (data.conflictErrors && data.conflictErrors.length > 0) {
       // 显示冲突错误
@@ -652,9 +645,7 @@ async function submitAvailability() {
     markDataUpdated('activities');
 
     // 保持当前选中的活动代码，重新加载申报数据
-    console.log('[提交申报] 开始刷新数据...');
     await loadAvailabilityDates();
-    console.log('[提交申报] 数据刷新完成');
 
     // 启用请求重新组队按钮
     enableRebuildButton();
@@ -679,18 +670,14 @@ async function submitAvailability() {
 // 加载活动
 async function loadActivities() {
   try {
-    console.log('[loadActivities] 开始加载活动...');
-
     // 检查是否需要强制刷新
     const forceRefresh = window.forceRefreshActivities;
     if (forceRefresh) {
-      console.log('[loadActivities] 强制刷新数据');
       window.forceRefreshActivities = false;
     }
 
     // 我的活动 - 月历表形式
     const myData = await apiRequest('/team/activities/my');
-    console.log('[loadActivities] 我的活动:', myData.activities.length, '个');
     const myContainer = document.getElementById('myActivitiesList');
 
     if (myData.activities.length === 0) {
@@ -722,8 +709,6 @@ async function loadActivities() {
         }
         activitiesByDate[date].push({ timeSlot, activity: a });
       });
-
-      console.log('[loadActivities] 按日期分组:', Object.keys(activitiesByDate).length, '天');
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
