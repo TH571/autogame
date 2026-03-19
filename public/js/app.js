@@ -1,4 +1,88 @@
-// 文体活动组队系统 - 前端逻辑
+// ========== 全局更新通知系统 ==========
+
+// 全局更新标记
+window.dataUpdateFlags = {
+  availability: false,  // 时间申报有更新
+  activities: false,    // 组队结果有更新
+  requests: false       // 组队请求有更新
+};
+
+// 标记数据已更新
+function markDataUpdated(type) {
+  if (window.dataUpdateFlags[type] !== undefined) {
+    window.dataUpdateFlags[type] = true;
+  }
+  // 显示更新提示
+  showUpdateNotification(type);
+}
+
+// 显示更新提示
+function showUpdateNotification(type) {
+  const typeNames = {
+    availability: '时间申报',
+    activities: '组队结果',
+    requests: '组队请求'
+  };
+  
+  const toast = document.createElement('div');
+  toast.className = 'position-fixed top-0 end-0 m-3 alert alert-info shadow-lg';
+  toast.style.zIndex = '9999';
+  toast.innerHTML = `
+    <div class="d-flex align-items-center">
+      <i class="bi bi-info-circle-fill me-2"></i>
+      <div>
+        <strong>${typeNames[type] || '数据'} 已更新</strong>
+        <br><small>点击刷新查看最新数据</small>
+      </div>
+      <button type="button" class="btn-close ms-3" onclick="this.parentElement.remove()"></button>
+    </div>
+  `;
+  toast.onclick = () => {
+    location.reload();
+  };
+  document.body.appendChild(toast);
+  
+  // 3 秒后自动消失
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.remove();
+    }
+  }, 3000);
+}
+
+// 检查并刷新数据
+function checkAndRefreshData() {
+  const flags = window.dataUpdateFlags;
+  
+  if (flags.availability) {
+    if (document.getElementById('availabilityPage') && 
+        !document.getElementById('availabilityPage').classList.contains('d-none')) {
+      loadAvailabilityDates();
+    }
+    flags.availability = false;
+  }
+  
+  if (flags.activities) {
+    if (document.getElementById('activitiesPage') && 
+        !document.getElementById('activitiesPage').classList.contains('d-none')) {
+      loadActivities();
+    }
+    flags.activities = false;
+  }
+  
+  if (flags.requests) {
+    if (document.getElementById('rebuildRequestsPage') && 
+        !document.getElementById('rebuildRequestsPage').classList.contains('d-none')) {
+      loadRebuildRequests();
+    }
+    flags.requests = false;
+  }
+}
+
+// 定时检查数据更新（每 5 秒）
+setInterval(checkAndRefreshData, 5000);
+
+// ========== 认证和页面加载 ==========
 
 const API_BASE = '/api';
 let currentUser = null;
@@ -156,18 +240,19 @@ function showPage(pageName) {
   if (page) {
     page.classList.remove('d-none');
 
-    // 加载对应数据
+    // 加载对应数据，并清除更新标记
     switch(pageName) {
       case 'availability':
         loadMyActivityCodes();
-        // loadAvailabilityDates() 会在活动代码加载后自动调用（当选择第一个活动代码时）
-        // 或者在用户手动选择活动代码时通过 change 事件触发
+        window.dataUpdateFlags.availability = false;
         break;
       case 'activities':
         loadActivities();
+        window.dataUpdateFlags.activities = false;
         break;
       case 'rebuildRequests':
         loadRebuildRequests();
+        window.dataUpdateFlags.requests = false;
         break;
       case 'userManagement':
         loadUserManagement();
@@ -545,6 +630,10 @@ async function submitAvailability() {
     // 保存变化的时间段，用于后续请求重新组队
     window.lastAddedAvailabilities = data.addedAvailabilities || [];
     window.lastDeletedAvailabilities = data.deletedAvailabilities || [];
+
+    // 标记时间申报已更新
+    markDataUpdated('availability');
+    markDataUpdated('activities');
 
     // 保持当前选中的活动代码，重新加载申报数据
     console.log('[提交申报] 开始刷新数据...');
@@ -1164,10 +1253,13 @@ async function removeMemberFromModal(activityId, userId, userName) {
 // 删除活动
 async function deleteActivity(activityId) {
   if (!confirm('确定要删除这个活动吗？')) return;
-  
+
   try {
     await apiRequest(`/team/activities/${activityId}`, { method: 'DELETE' });
     showToast('活动已删除', 'success');
+    
+    // 标记组队结果已更新
+    markDataUpdated('activities');
     loadActivities();
   } catch (error) {
     showToast('删除失败：' + error.message, 'danger');
@@ -2051,6 +2143,10 @@ async function deleteActivityCode(codeId) {
     await apiRequest(`/activity/codes/${codeId}`, { method: 'DELETE' });
     showToast('活动代码已删除', 'success');
     
+    // 标记组队请求和组队结果已更新
+    markDataUpdated('requests');
+    markDataUpdated('activities');
+
     // 根据当前页面刷新列表
     const activityManagementPage = document.getElementById('activityManagementPage');
     if (activityManagementPage && !activityManagementPage.classList.contains('d-none')) {
