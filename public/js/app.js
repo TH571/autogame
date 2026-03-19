@@ -346,14 +346,17 @@ async function loadAvailabilityDates() {
     const activitiesData = await apiRequest('/team/activities');
     const activities = activitiesData.activities || [];
     
-    // 构建已组队的时间段映射
+    // 构建已组队的时间段映射（只匹配当前活动代码）
     const scheduledMap = {};
     activities.forEach(activity => {
-      const key = `${activity.date}-${activity.time_slot}`;
-      scheduledMap[key] = {
-        memberCount: activity.memberCount,
-        members: activity.members
-      };
+      // 检查活动是否属于当前活动代码
+      if (activity.activity_code === activityCode) {
+        const key = `${activity.date}-${activity.time_slot}`;
+        scheduledMap[key] = {
+          memberCount: activity.memberCount,
+          members: activity.members
+        };
+      }
     });
 
     const tbody = document.getElementById('availabilityBody');
