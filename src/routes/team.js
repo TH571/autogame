@@ -76,6 +76,9 @@ router.get('/activities', authMiddleware, async (req, res) => {
           const activityCodeData = await ActivityCode.getByCode(availability.activity_code);
           if (activityCodeData) {
             activityName = activityCodeData.name;
+          } else {
+            // 活动代码不存在，设置为空字符串
+            activityCode = '';
           }
         }
       }
@@ -90,7 +93,7 @@ router.get('/activities', authMiddleware, async (req, res) => {
       };
     }));
 
-    // 【新增】过滤掉活动代码不存在的活动（失效的活动）
+    // 过滤掉活动代码不存在或为空的活动（失效的活动）
     const validActivities = activitiesWithMembers.filter(a => a.activity_code !== '');
 
     res.json({ activities: validActivities });
@@ -144,6 +147,9 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
           const activityCodeData = await ActivityCode.getByCode(availability.activity_code);
           if (activityCodeData) {
             activityName = activityCodeData.name;
+          } else {
+            // 活动代码不存在，设置为空字符串
+            activityCode = '';
           }
         }
       }
@@ -165,7 +171,7 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
       };
     }));
 
-    // 【新增】过滤掉活动代码不存在的活动（失效的活动）
+    // 过滤掉活动代码不存在或为空的活动（失效的活动）
     const validActivities = activities.filter(a => a.activity_code !== '');
 
     res.json({ activities: validActivities });
