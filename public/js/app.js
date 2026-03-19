@@ -389,6 +389,12 @@ async function loadAvailabilityDates() {
     });
 
     console.log('[loadAvailabilityDates] selectedAvailabilities 数量:', selectedAvailabilities.length);
+    
+    // 保存原始数据用于比较
+    window.originalAvailabilities = JSON.parse(JSON.stringify(selectedAvailabilities));
+    
+    // 更新按钮状态
+    updateRebuildButtonState();
   } catch (error) {
     console.error('[loadAvailabilityDates] 错误:', error);
     showToast('加载日期失败：' + error.message, 'danger');
@@ -441,6 +447,9 @@ function toggleTimeCheckbox(checkbox) {
   }
 
   console.log('[toggleTimeCheckbox] 当前 selectedAvailabilities:', selectedAvailabilities);
+  
+  // 更新按钮状态
+  updateRebuildButtonState();
 }
 
 // 提交申报
@@ -517,9 +526,6 @@ async function submitAvailability() {
     await loadAvailabilityDates();
     console.log('[提交申报] 数据刷新完成');
 
-    // 显示请求重新组队按钮
-    showRebuildRequestButton(activityCode);
-
     // 恢复按钮状态
     if (submitBtn && originalText) {
       submitBtn.disabled = false;
@@ -535,79 +541,6 @@ async function submitAvailability() {
       submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> 提交申报';
     }
   }
-}
-
-// 显示请求重新组队按钮
-function showRebuildRequestButton(activityCode) {
-  const container = document.getElementById('availabilityPage');
-  if (!container) return;
-
-  // 移除旧的按钮（如果有）
-  const oldBtn = document.getElementById('rebuildRequestBtn');
-  if (oldBtn) oldBtn.remove();
-
-  // 创建新按钮
-  const btn = document.createElement('div');
-  btn.id = 'rebuildRequestBtn';
-  btn.className = 'alert alert-info mt-3 mb-0';
-  btn.innerHTML = `
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <i class="bi bi-info-circle"></i> 您的时间申报已更新，可能需要重新组队
-        <br><small class="text-muted">提交后需要管理员审批，审批通过后将自动重新组队</small>
-      </div>
-      <button class="btn btn-primary" onclick="submitRebuildRequest('${activityCode}')">
-        <i class="bi bi-robot"></i> 请求重新组队
-      </button>
-    </div>
-  `;
-
-  container.querySelector('.card-body').appendChild(btn);
-}
-
-// 提交重新组队请求
-async function submitRebuildRequest(activityCode) {
-  const activityCodeSelect = document.getElementById('activityCodeSelect');
-  if (!activityCodeSelect || !activityCodeSelect.value) {
-    showToast('请先选择活动代码', 'warning');
-    return;
-  }
-
-  // 获取用户已申报的日期和时间段
-  const datesToRebuild = selectedAvailabilities.map(a => ({
-    date: a.date,
-    timeSlot: a.timeSlot
-  }));
-
-  if (datesToRebuild.length === 0) {
-    showToast('请先申报时间', 'warning');
-    return;
-  }
-
-  // 对每个时间段创建请求
-  let successCount = 0;
-  for (const item of datesToRebuild) {
-    try {
-      await apiRequest('/team-rebuild/requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          activityCode,
-          date: item.date,
-          timeSlot: item.timeSlot,
-          reason: '用户修改了时间申报'
-        })
-      });
-      successCount++;
-    } catch (error) {
-      console.error('提交请求失败:', error);
-    }
-  }
-
-  // 移除按钮
-  const btn = document.getElementById('rebuildRequestBtn');
-  if (btn) btn.remove();
-
-  showToast(`已提交 ${successCount} 个时间段的组队请求，请等待管理员审批`, 'success');
 }
 
 // 加载活动
@@ -3177,7 +3110,7 @@ function formatDateCN(dateStr) {
   const now = new Date();
   const diff = now - date;
   const hours = Math.floor(diff / (1000 * 60 * 60));
-  
+
   if (hours < 1) {
     return '刚刚';
   } else if (hours < 24) {
@@ -3185,4 +3118,64 @@ function formatDateCN(dateStr) {
   } else {
     return date.toLocaleDateString('zh-CN');
   }
+}
+
+// 更新请求重新组队按钮状态
+function updateRebuildButtonState() {
+  const btn = document.getElementById('rebuildRequestBtnInline');
+  if (!btn) return;
+
+  // 比较当前选择与原始数据
+  const current = JSON.stringify(selectedAvailabilities.sort((a, b) => 
+    `${a.date}-${a.timeSlot}`.localeCompare(`${b.date}-${b.timeSlot}`)
+  ));
+  const original = JSON.stringify((window.originalAvailabilities || []).sort((a, b) => 
+    `${a.date}-${a.timeSlot}`.localeCompare(`${b.date}-${b.timeSlot}`)
+  ));
+
+  const hasChanges = current !== original && selectedAvailabilities.length > 0;
+
+  btn.disabled = !hasChanges;
+  btn.classList.toggle('btn-secondary', !hasChanges);
+  btn.classList.toggle('btn-info', hasChanges);
+  btn.title = hasChanges ? '时间申报已修改，可以请求重新组队' : '时间申报没有变化';
+}
+
+// 从按钮提交重新组队请求
+async function submitRebuildRequestFromBtn() {
+  const activityCode = document.getElementById('activityCodeSelect').value;
+  if (!activityCode) {
+    showToast('请先选择活动代码', 'warning');
+    return;
+  }
+
+  if (selectedAvailabilities.length === 0) {
+    showToast('请先申报时间', 'warning');
+    return;
+  }
+
+  // 对每个时间段创建请求
+  let successCount = 0;
+  for (const item of selectedAvailabilities) {
+    try {
+      await apiRequest('/team-rebuild/requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          activityCode,
+          date: item.date,
+          timeSlot: item.timeSlot,
+          reason: '用户修改了时间申报'
+        })
+      });
+      successCount++;
+    } catch (error) {
+      console.error('提交请求失败:', error);
+    }
+  }
+
+  // 更新原始数据
+  window.originalAvailabilities = JSON.parse(JSON.stringify(selectedAvailabilities));
+  updateRebuildButtonState();
+
+  showToast(`已提交 ${successCount} 个时间段的组队请求，请等待管理员审批`, 'success');
 }
