@@ -126,11 +126,74 @@ router.get('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, re
 router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    await ActivityCode.delete(id);
-    res.json({ message: '活动代码删除成功' });
+    
+    // 获取活动代码信息
+    const ActivityCodeModel = require('../models/ActivityCode');
+    const activityCode = await ActivityCodeModel.getById(id);
+    
+    if (!activityCode) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+
+    const DatabaseAdapter = require('../utils/db-adapter');
+    const db = new DatabaseAdapter();
+
+    // 使用事务确保所有相关数据都被删除
+    const transaction = db.transaction(() => {
+      // 1. 删除该活动的所有组队请求
+      db.run(`DELETE FROM team_rebuild_requests WHERE activity_code = ?`, [activityCode.code]);
+      console.log('删除组队请求');
+
+      // 2. 删除该活动的所有通知
+      db.run(`DELETE FROM admin_notifications WHERE related_type = 'team_rebuild_request' AND related_id IN (
+        SELECT id FROM team_rebuild_requests WHERE activity_code = ?
+      )`, [activityCode.code]);
+      console.log('删除相关通知');
+
+      // 3. 删除该活动的所有活动记录成员
+      db.run(`DELETE FROM activity_members WHERE activity_id IN (
+        SELECT id FROM activities WHERE date IN (
+          SELECT date FROM availability WHERE activity_code = ?
+        )
+      )`);
+      console.log('删除活动成员');
+
+      // 4. 删除该活动的所有活动记录
+      db.run(`DELETE FROM activities WHERE date IN (
+        SELECT date FROM availability WHERE activity_code = ?
+      )`, [activityCode.code]);
+      console.log('删除活动记录');
+
+      // 5. 删除该活动的所有时间申报
+      db.run(`DELETE FROM availability WHERE activity_code = ?`, [activityCode.code]);
+      console.log('删除时间申报');
+
+      // 6. 删除该活动的所有种子选手关联
+      db.run(`DELETE FROM activity_code_seeds WHERE activity_code_id = ?`, [id]);
+      console.log('删除种子选手关联');
+
+      // 7. 删除该活动的所有用户关联
+      db.run(`DELETE FROM activity_code_users WHERE activity_code_id = ?`, [id]);
+      console.log('删除用户关联');
+
+      // 8. 删除该活动的所有邀请码
+      db.run(`DELETE FROM activity_invites WHERE activity_code_id = ?`, [id]);
+      console.log('删除邀请码');
+
+      // 9. 最后删除活动代码本身
+      db.run(`DELETE FROM activity_codes WHERE id = ?`, [id]);
+      console.log('删除活动代码');
+    });
+
+    transaction();
+
+    res.json({ 
+      message: '活动代码及相关数据已删除',
+      deletedCode: activityCode.code
+    });
   } catch (error) {
     console.error('删除活动代码错误:', error);
-    res.status(500).json({ error: '删除活动代码失败' });
+    res.status(500).json({ error: '删除活动代码失败：' + error.message });
   }
 });
 

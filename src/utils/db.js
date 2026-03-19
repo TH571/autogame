@@ -154,7 +154,7 @@ async function initPostgres() {
         code VARCHAR(50) UNIQUE NOT NULL,
         name VARCHAR(100) NOT NULL,
         description TEXT,
-        created_by INTEGER REFERENCES users(id),
+        created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         min_players INTEGER DEFAULT 4,
         max_players INTEGER DEFAULT 4,

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS availability (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (activity_code) REFERENCES activity_codes(code) ON DELETE CASCADE,
   UNIQUE(user_id, date, time_slot)
 );
 
@@ -77,7 +78,7 @@ CREATE TABLE IF NOT EXISTS activity_codes (
   players_per_game INTEGER DEFAULT 4,
   require_seed BOOLEAN DEFAULT 1,
   seed_required BOOLEAN DEFAULT 1,
-  FOREIGN KEY (created_by) REFERENCES users(id)
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 活动代码用户关联表
