@@ -515,6 +515,10 @@ async function submitAvailability() {
 
     showToast(msg, 'success');
 
+    // 保存变化的时间段，用于后续请求重新组队
+    window.lastAddedAvailabilities = data.addedAvailabilities || [];
+    window.lastDeletedAvailabilities = data.deletedAvailabilities || [];
+
     // 保持当前选中的活动代码，重新加载申报数据
     console.log('[提交申报] 开始刷新数据...');
     await loadAvailabilityDates();
@@ -3281,17 +3285,51 @@ async function submitRebuildRequestFromBtn() {
     return;
   }
 
-  // 对每个时间段创建请求
+  // 只对有变化的时间段创建请求（新增或删除的）
+  const changedAvailabilities = [];
+  
+  // 添加新增的时间段
+  if (window.lastAddedAvailabilities && window.lastAddedAvailabilities.length > 0) {
+    window.lastAddedAvailabilities.forEach(item => {
+      changedAvailabilities.push({
+        date: item.date,
+        timeSlot: item.timeSlot,
+        changeType: 'added'
+      });
+    });
+  }
+  
+  // 添加删除的时间段
+  if (window.lastDeletedAvailabilities && window.lastDeletedAvailabilities.length > 0) {
+    window.lastDeletedAvailabilities.forEach(item => {
+      changedAvailabilities.push({
+        date: item.date,
+        timeSlot: item.timeSlot,
+        changeType: 'deleted'
+      });
+    });
+  }
+  
+  if (changedAvailabilities.length === 0) {
+    showToast('没有变化的时间段，无需请求重新组队', 'warning');
+    return;
+  }
+
+  // 对每个变化的时间段创建请求
   let successCount = 0;
-  for (const item of selectedAvailabilities) {
+  for (const item of changedAvailabilities) {
     try {
+      const reason = item.changeType === 'added' 
+        ? '用户新增了时间申报' 
+        : '用户取消了时间申报';
+      
       await apiRequest('/team-rebuild/requests', {
         method: 'POST',
         body: JSON.stringify({
           activityCode,
           date: item.date,
           timeSlot: item.timeSlot,
-          reason: '用户修改了时间申报'
+          reason
         })
       });
       successCount++;
@@ -3300,13 +3338,17 @@ async function submitRebuildRequestFromBtn() {
     }
   }
 
+  // 清空变化记录
+  window.lastAddedAvailabilities = null;
+  window.lastDeletedAvailabilities = null;
+  
   // 更新原始数据
   window.originalAvailabilities = JSON.parse(JSON.stringify(selectedAvailabilities));
-
+  
   // 禁用按钮
   disableRebuildButton();
 
-  showToast(`已提交 ${successCount} 个时间段的组队请求，请等待管理员审批`, 'success');
+  showToast(`已提交 ${successCount} 个变化的时间段的组队请求，请等待管理员审批`, 'success');
 }
 
 // ========== 通知管理 ==========

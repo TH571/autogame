@@ -211,12 +211,17 @@ router.post('/batch', authMiddleware, async (req, res) => {
 
     // 删除用户取消勾选的申报（剩余的 existingMap 中的记录）
     const deletedCount = { count: 0 };
+    const deletedAvailabilities = []; // 记录删除的申报
     for (const [key, av] of existingMap) {
       // 检查是否可以删除
       const modifyStatus = await Availability.canModify(req.user.id, av.date, av.time_slot);
       if (modifyStatus.canModify) {
         await Availability.remove(req.user.id, av.date, av.time_slot);
         deletedCount.count++;
+        deletedAvailabilities.push({
+          date: av.date,
+          timeSlot: av.time_slot
+        });
       } else {
         errors.push(`${av.date} ${getTimeSlotText(av.time_slot)}: 已锁定，无法取消`);
       }
@@ -243,6 +248,8 @@ router.post('/batch', authMiddleware, async (req, res) => {
       successCount: newAvailabilities.length + deletedCount.count,
       addedCount: newAvailabilities.length,
       deletedCount: deletedCount.count,
+      addedAvailabilities: newAvailabilities, // 新增的申报列表
+      deletedAvailabilities: deletedAvailabilities, // 删除的申报列表
       regretPeriodCount: regretPeriodCount.count > 0 ? regretPeriodCount.count : undefined,
       errors: errors.length > 0 ? errors : undefined,
       conflictErrors: conflictErrors.length > 0 ? conflictErrors : undefined
