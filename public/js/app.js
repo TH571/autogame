@@ -351,7 +351,7 @@ async function loadAvailabilityDates() {
     myActivities.forEach(activity => {
       // 检查活动是否属于当前活动代码
       if (activity.activity_code === activityCode) {
-        const key = `${activity.date}-${activity.time_slot}`;
+        const key = `${activity.date}-${activity.timeSlot}`;
         scheduledMap[key] = {
           memberCount: activity.memberCount,
           members: activity.members
