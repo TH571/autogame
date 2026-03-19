@@ -431,18 +431,34 @@ async function loadAvailabilityDates() {
     const myActivitiesData = await apiRequest('/team/activities/my');
     const myActivities = myActivitiesData.activities || [];
     
+    console.log('[loadAvailabilityDates] 当前活动代码:', activityCode);
+    console.log('[loadAvailabilityDates] 用户活动:', myActivities.length, '个');
+
     // 构建已组队的时间段映射（只匹配当前用户和当前活动代码）
     const scheduledMap = {};
     myActivities.forEach(activity => {
+      console.log('[loadAvailabilityDates] 活动检查:', {
+        id: activity.id,
+        date: activity.date,
+        timeSlot: activity.timeSlot,
+        time_slot: activity.time_slot,
+        activity_code: activity.activity_code
+      });
+      
       // 检查活动是否属于当前活动代码
       if (activity.activity_code === activityCode) {
-        const key = `${activity.date}-${activity.timeSlot}`;
+        const timeSlot = activity.timeSlot || activity.time_slot;
+        const key = `${activity.date}-${timeSlot}`;
+        const memberCount = activity.memberCount || activity.members?.length || 0;
         scheduledMap[key] = {
-          memberCount: activity.memberCount,
-          members: activity.members
+          memberCount: memberCount,
+          members: activity.members || []
         };
+        console.log(`[loadAvailabilityDates] 已组队：${key} (${memberCount}人)`);
       }
     });
+    
+    console.log('[loadAvailabilityDates] 已组队映射:', scheduledMap);
 
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
@@ -695,6 +711,19 @@ async function loadActivities() {
         }
       }
       window.lastActivitiesLoadTime = Date.now();
+
+      // 按日期分组活动 - 使用数组存储同一天的多个活动
+      const activitiesByDate = {};
+      myData.activities.forEach(a => {
+        const date = a.date;
+        const timeSlot = a.timeSlot || a.time_slot;
+        if (!activitiesByDate[date]) {
+          activitiesByDate[date] = [];
+        }
+        activitiesByDate[date].push({ timeSlot, activity: a });
+      });
+
+      console.log('[loadActivities] 按日期分组:', Object.keys(activitiesByDate).length, '天');
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
