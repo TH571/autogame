@@ -664,10 +664,17 @@ async function submitAvailability() {
 async function loadActivities() {
   try {
     console.log('[loadActivities] 开始加载活动...');
-    
+
+    // 检查是否需要强制刷新
+    const forceRefresh = window.forceRefreshActivities;
+    if (forceRefresh) {
+      console.log('[loadActivities] 强制刷新数据');
+      window.forceRefreshActivities = false;
+    }
+
     // 我的活动 - 月历表形式
     const myData = await apiRequest('/team/activities/my');
-    console.log('[loadActivities] 我的活动:', myData.activities);
+    console.log('[loadActivities] 我的活动:', myData.activities.length, '个');
     const myContainer = document.getElementById('myActivitiesList');
 
     if (myData.activities.length === 0) {
@@ -679,18 +686,15 @@ async function loadActivities() {
         </div>
       `;
     } else {
-      // 按日期分组活动 - 使用数组存储同一天的多个活动
-      const activitiesByDate = {};
-      myData.activities.forEach(a => {
-        const date = a.date;
-        const timeSlot = a.timeSlot || a.time_slot;
-        if (!activitiesByDate[date]) {
-          activitiesByDate[date] = [];
+      // 显示更新提示
+      if (window.lastActivitiesLoadTime && !forceRefresh) {
+        const now = Date.now();
+        const diff = now - window.lastActivitiesLoadTime;
+        if (diff < 10000) { // 10 秒内有更新
+          console.log('[loadActivities] 数据有更新，重新加载');
         }
-        activitiesByDate[date].push({ timeSlot, activity: a });
-      });
-
-      console.log('[loadActivities] 按日期分组:', activitiesByDate);
+      }
+      window.lastActivitiesLoadTime = Date.now();
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
@@ -3258,6 +3262,9 @@ async function batchApproveRequests() {
     markDataUpdated('requests');
     markDataUpdated('activities');
     
+    // 强制刷新组队结果页面数据
+    window.lastActivitiesLoadTime = 0; // 清除缓存时间戳
+    
     let message = `批量处理完成！\n✅ 批准：${successCount} 个`;
     if (totalActivities > 0) message += `\n📋 创建活动：${totalActivities} 个`;
     if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
@@ -3267,8 +3274,10 @@ async function batchApproveRequests() {
     // 自动刷新组队结果页面
     if (totalActivities > 0) {
       setTimeout(() => {
+        // 清除组队结果页面的缓存
+        window.forceRefreshActivities = true;
         showPage('activities');
-      }, 1500);
+      }, 2000);
     }
     
     // 刷新列表
@@ -3340,12 +3349,17 @@ async function approveRebuildRequest(requestId) {
     markDataUpdated('requests');
     markDataUpdated('activities');
 
+    // 强制刷新组队结果页面数据
+    window.lastActivitiesLoadTime = 0; // 清除缓存时间戳
+
     // 自动刷新组队结果页面
     if (activityCount > 0) {
-      // 如果当前在组队请求页面，提示用户查看结果
+      // 2 秒后跳转到组队结果页面，确保数据已更新
       setTimeout(() => {
+        // 清除组队结果页面的缓存
+        window.forceRefreshActivities = true;
         showPage('activities');
-      }, 1500);
+      }, 2000);
     }
 
     // 刷新列表
