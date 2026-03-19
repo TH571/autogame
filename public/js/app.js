@@ -3254,6 +3254,10 @@ async function batchApproveRequests() {
       }
     }
     
+    // 标记组队请求和组队结果已更新
+    markDataUpdated('requests');
+    markDataUpdated('activities');
+    
     let message = `批量处理完成！\n✅ 批准：${successCount} 个`;
     if (totalActivities > 0) message += `\n📋 创建活动：${totalActivities} 个`;
     if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
@@ -3290,7 +3294,7 @@ async function batchRejectRequests() {
   try {
     let successCount = 0;
     let failCount = 0;
-    
+
     for (const id of selectedIds) {
       try {
         await apiRequest(`/team-rebuild/requests/${id}/reject`, {
@@ -3303,12 +3307,15 @@ async function batchRejectRequests() {
         failCount++;
       }
     }
-    
+
+    // 标记组队请求已更新
+    markDataUpdated('requests');
+
     let message = `批量处理完成！\n✅ 拒绝：${successCount} 个`;
     if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
-    
+
     showToast(message, successCount > 0 ? 'success' : 'danger');
-    
+
     // 刷新列表
     loadRebuildRequests();
   } catch (error) {
@@ -3328,6 +3335,10 @@ async function approveRebuildRequest(requestId) {
 
     const activityCount = result.activities ? result.activities.length : 0;
     showToast(`请求已批准，重新组队完成！共创建 ${activityCount} 个活动`, 'success');
+
+    // 标记组队请求和组队结果已更新
+    markDataUpdated('requests');
+    markDataUpdated('activities');
 
     // 自动刷新组队结果页面
     if (activityCount > 0) {
@@ -3354,6 +3365,9 @@ async function rejectRebuildRequest(requestId) {
       method: 'POST',
       body: JSON.stringify({ adminNote: reason })
     });
+
+    // 标记组队请求已更新
+    markDataUpdated('requests');
 
     showToast('请求已拒绝', 'success');
 
