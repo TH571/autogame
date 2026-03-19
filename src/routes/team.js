@@ -61,7 +61,7 @@ router.get('/activities', authMiddleware, async (req, res) => {
     // 获取每个活动的成员
     const activitiesWithMembers = await Promise.all(activities.map(async (activity) => {
       const members = await Activity.getMembers(activity.id);
-      
+
       // 获取活动代码和名称（从参与历史中获取第一个用户的申报）
       let activityCode = '';
       let activityName = '';
@@ -79,7 +79,7 @@ router.get('/activities', authMiddleware, async (req, res) => {
           }
         }
       }
-      
+
       return {
         ...activity,
         timeSlotText: getTimeSlotText(activity.time_slot),
@@ -90,7 +90,10 @@ router.get('/activities', authMiddleware, async (req, res) => {
       };
     }));
 
-    res.json({ activities: activitiesWithMembers });
+    // 【新增】过滤掉活动代码不存在的活动（失效的活动）
+    const validActivities = activitiesWithMembers.filter(a => a.activity_code !== '');
+
+    res.json({ activities: validActivities });
   } catch (error) {
     console.error('获取活动列表错误:', error);
     res.status(500).json({ error: '获取活动列表失败' });
@@ -126,7 +129,7 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
 
     const activities = await Promise.all(history.map(async h => {
       const members = await Activity.getMembers(h.id);
-      
+
       // 获取活动代码和名称
       let activityCode = '';
       let activityName = '';
@@ -144,7 +147,7 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
           }
         }
       }
-      
+
       return {
         id: h.id,
         date: h.date,
@@ -162,7 +165,10 @@ router.get('/activities/my', authMiddleware, async (req, res) => {
       };
     }));
 
-    res.json({ activities });
+    // 【新增】过滤掉活动代码不存在的活动（失效的活动）
+    const validActivities = activities.filter(a => a.activity_code !== '');
+
+    res.json({ activities: validActivities });
   } catch (error) {
     console.error('获取用户活动错误:', error);
     res.status(500).json({ error: '获取活动列表失败' });
