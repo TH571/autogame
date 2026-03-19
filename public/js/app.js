@@ -13,7 +13,6 @@ window.dataUpdateFlags = {
 function markDataUpdated(type) {
   if (window.dataUpdateFlags[type] !== undefined) {
     window.dataUpdateFlags[type] = true;
-    console.log(`[数据更新] ${type} 已标记为需要更新`);
   }
   // 显示更新提示
   showUpdateNotification(type);
@@ -58,7 +57,6 @@ function checkAndRefreshData() {
   if (flags.availability) {
     const availabilityPage = document.getElementById('availabilityPage');
     if (availabilityPage && !availabilityPage.classList.contains('d-none')) {
-      console.log('[数据更新] 自动刷新时间申报');
       loadAvailabilityDates();
       flags.availability = false;
       refreshed = true;
@@ -68,7 +66,6 @@ function checkAndRefreshData() {
   if (flags.activities) {
     const activitiesPage = document.getElementById('activitiesPage');
     if (activitiesPage && !activitiesPage.classList.contains('d-none')) {
-      console.log('[数据更新] 自动刷新组队结果');
       loadActivities();
       flags.activities = false;
       refreshed = true;
@@ -78,15 +75,10 @@ function checkAndRefreshData() {
   if (flags.requests) {
     const rebuildRequestsPage = document.getElementById('rebuildRequestsPage');
     if (rebuildRequestsPage && !rebuildRequestsPage.classList.contains('d-none')) {
-      console.log('[数据更新] 自动刷新组队请求');
       loadRebuildRequests();
       flags.requests = false;
       refreshed = true;
     }
-  }
-
-  if (refreshed) {
-    console.log('[数据更新] 完成刷新');
   }
 }
 
@@ -179,14 +171,12 @@ async function checkAuth() {
       showAuthPage();
     } else {
       // 其他错误（如网络问题）保留 token，尝试从 localStorage 恢复用户信息
-      console.log('检查登录状态失败，但保留 token:', error.message);
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
         showMainApp();
       } else {
         // 如果没有保存的用户信息，清除 token 并显示登录页面
-        console.log('无保存的用户信息，请重新登录');
         localStorage.removeItem('token');
         userToken = null;
         currentUser = null;
@@ -469,12 +459,10 @@ async function loadAvailabilityDates() {
       const fullDay = item.slots[3];
       const hasAfternoon = afternoon.exists || fullDay.exists;
       const hasEvening = evening.exists || fullDay.exists;
-      
+
       // 检查是否已组队
       const afternoonScheduled = scheduledMap[`${item.date}-1`];
       const eveningScheduled = scheduledMap[`${item.date}-2`];
-
-      console.log(`[loadAvailabilityDates] ${item.date}: 下午=${hasAfternoon ? '✓' : '✗'}, 晚上=${hasEvening ? '✓' : '✗'}`);
 
       tr.innerHTML = `
         <td>${item.date}</td>
@@ -511,8 +499,6 @@ async function loadAvailabilityDates() {
       if (hasEvening) selectedAvailabilities.push({ date: item.date, timeSlot: 2, isLocked: evening.isLocked || fullDay.isLocked });
     });
 
-    console.log('[loadAvailabilityDates] selectedAvailabilities 数量:', selectedAvailabilities.length);
-
     // 禁用请求重新组队按钮
     disableRebuildButton();
   } catch (error) {
@@ -541,12 +527,9 @@ function toggleTimeCheckbox(checkbox) {
   const date = checkbox.dataset.date;
   const slot = parseInt(checkbox.dataset.slot);
 
-  console.log('[toggleTimeCheckbox] 点击:', date, 'slot:', slot, 'checked:', checkbox.checked);
-
   if (checkbox.disabled) {
     showToast('该时间段已锁定，无法修改', 'warning');
     checkbox.checked = !checkbox.checked; // 恢复原状态
-    console.log('[toggleTimeCheckbox] 已锁定，恢复状态');
     return;
   }
 
@@ -556,17 +539,13 @@ function toggleTimeCheckbox(checkbox) {
     // 勾选
     if (index < 0) {
       selectedAvailabilities.push({ date, timeSlot: slot, isLocked: false });
-      console.log('[toggleTimeCheckbox] 添加:', date, slot);
     }
   } else {
     // 取消勾选
     if (index >= 0) {
       selectedAvailabilities.splice(index, 1);
-      console.log('[toggleTimeCheckbox] 移除:', date, slot);
     }
   }
-
-  console.log('[toggleTimeCheckbox] 当前 selectedAvailabilities:', selectedAvailabilities);
 }
 
 // 提交申报
@@ -582,9 +561,6 @@ async function submitAvailability() {
     showToast('请选择至少一个时间段', 'warning');
     return;
   }
-
-  console.log('[提交申报] 准备提交:', selectedAvailabilities);
-  console.log('[提交申报] 活动代码:', activityCode);
 
   try {
     // 显示加载状态
@@ -689,16 +665,6 @@ async function loadActivities() {
         </div>
       `;
     } else {
-      // 显示更新提示
-      if (window.lastActivitiesLoadTime && !forceRefresh) {
-        const now = Date.now();
-        const diff = now - window.lastActivitiesLoadTime;
-        if (diff < 10000) { // 10 秒内有更新
-          console.log('[loadActivities] 数据有更新，重新加载');
-        }
-      }
-      window.lastActivitiesLoadTime = Date.now();
-
       // 按日期分组活动 - 使用数组存储同一天的多个活动
       const activitiesByDate = {};
       myData.activities.forEach(a => {
@@ -793,14 +759,13 @@ async function loadActivities() {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               let periodClass = '';
-              const timeSlot = item.time_slot || item.timeSlot; // API 返回的是 time_slot
-              console.log('[我的活动] timeSlot:', timeSlot, 'item:', item);
+              const timeSlot = item.time_slot || item.timeSlot;
               if (timeSlot === 1) {
                 timeSlotText = '下午';
-                periodClass = 'bg-warning'; // 下午用黄色标识
+                periodClass = 'bg-warning';
               } else if (timeSlot === 2) {
                 timeSlotText = '晚上';
-                periodClass = 'bg-info'; // 晚上用蓝色标识
+                periodClass = 'bg-info';
               } else {
                 timeSlotText = '未知 (' + timeSlot + ')';
                 periodClass = 'bg-secondary';
@@ -834,7 +799,6 @@ async function loadActivities() {
 
     // 所有活动 - 月历表形式
     const allData = await apiRequest('/team/activities');
-    console.log('[loadActivities] 所有活动:', allData.activities);
     const allContainer = document.getElementById('allActivitiesList');
 
     if (allData.activities.length === 0) {
@@ -858,8 +822,6 @@ async function loadActivities() {
         }
         activitiesByDate[date].push({ timeSlot, activity: a });
       });
-
-      console.log('[loadActivities] 所有活动按日期分组:', activitiesByDate);
 
       // 计算开始日期：从当前周的周日开始
       const todayStr = new Date().toISOString().split('T')[0];
@@ -946,14 +908,13 @@ async function loadActivities() {
               // 时间段显示：1=下午，2=晚上
               let timeSlotText = '';
               let periodClass = '';
-              const timeSlot = item.time_slot || item.timeSlot; // API 返回的是 time_slot
-              console.log('[日历活动] timeSlot:', timeSlot, 'item:', item);
+              const timeSlot = item.time_slot || item.timeSlot;
               if (timeSlot === 1) {
                 timeSlotText = '下午';
-                periodClass = 'bg-warning'; // 下午用黄色标识
+                periodClass = 'bg-warning';
               } else if (timeSlot === 2) {
                 timeSlotText = '晚上';
-                periodClass = 'bg-info'; // 晚上用蓝色标识
+                periodClass = 'bg-info';
               } else {
                 timeSlotText = '未知 (' + timeSlot + ')';
                 periodClass = 'bg-secondary';
@@ -1877,17 +1838,9 @@ async function saveActivityCode() {
       
       // 自动弹出人员分配对话框，并默认选中创建者
       setTimeout(() => {
-        console.log('[DEBUG] 完整返回数据 JSON:', JSON.stringify(result, null, 2));
         const newCode = result.code || { id: null, name: name };
-        console.log('[DEBUG] 创建活动代码后返回的数据:', result);
-        console.log('[DEBUG] newCode:', newCode);
-        console.log('[DEBUG] newCode.id:', newCode.id);
-        console.log('[DEBUG] newCode 的 keys:', Object.keys(newCode));
         if (newCode && newCode.id) {
-          console.log('[DEBUG] 准备调用 showAssignUserModal:', newCode.id, newCode.name || name);
           showAssignUserModal(newCode.id, newCode.name || name, true);
-        } else {
-          console.error('[DEBUG] newCode.id 不存在:', newCode);
         }
       }, 500);
     }
@@ -2342,7 +2295,6 @@ async function saveUser() {
         method: 'POST',
         body: JSON.stringify(data)
       });
-      console.log('创建用户响应:', response);
       showToast('用户创建成功', 'success');
     }
 
