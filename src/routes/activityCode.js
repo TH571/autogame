@@ -83,6 +83,11 @@ router.put('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, re
       return res.status(404).json({ error: '活动代码不存在' });
     }
 
+    // 权限验证：超级管理员可以更新任何活动，活动管理员只能更新自己创建的活动
+    if (req.user.role !== 'super_admin' && existing.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限更新该活动' });
+    }
+
     // 使用新值或现有值
     const updatedName = name || existing.name;
     const updatedDescription = description !== undefined ? description : existing.description;
@@ -115,6 +120,11 @@ router.get('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, re
       return res.status(404).json({ error: '活动代码不存在' });
     }
 
+    // 权限验证：超级管理员可以查看任何活动，活动管理员只能查看自己创建的活动
+    if (req.user.role !== 'super_admin' && code.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限查看该活动' });
+    }
+
     res.json(code);
   } catch (error) {
     console.error('获取活动代码错误:', error);
@@ -126,13 +136,18 @@ router.get('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, re
 router.delete('/codes/:id', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // 获取活动代码信息
     const ActivityCodeModel = require('../models/ActivityCode');
     const activityCode = await ActivityCodeModel.getById(id);
-    
+
     if (!activityCode) {
       return res.status(404).json({ error: '活动代码不存在' });
+    }
+
+    // 权限验证：超级管理员可以删除任何活动，活动管理员只能删除自己创建的活动
+    if (req.user.role !== 'super_admin' && activityCode.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限删除该活动' });
     }
 
     const DatabaseAdapter = require('../utils/db-adapter');
@@ -219,6 +234,15 @@ router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, async (
       return res.status(400).json({ error: '用户列表不能为空' });
     }
 
+    // 权限验证：超级管理员可以管理任何活动，活动管理员只能管理自己创建的活动
+    const activityCode = await ActivityCode.getById(id);
+    if (!activityCode) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    if (req.user.role !== 'super_admin' && activityCode.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限管理该活动' });
+    }
+
     await ActivityCode.addUsersBatch(id, userIds);
 
     res.json({ message: `成功添加 ${userIds.length} 名用户` });
@@ -232,6 +256,16 @@ router.post('/codes/:id/users', authMiddleware, activityAdminMiddleware, async (
 router.delete('/codes/:id/users/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id, userId } = req.params;
+
+    // 权限验证：超级管理员可以管理任何活动，活动管理员只能管理自己创建的活动
+    const activityCode = await ActivityCode.getById(id);
+    if (!activityCode) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    if (req.user.role !== 'super_admin' && activityCode.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限管理该活动' });
+    }
+
     await ActivityCode.removeUser(id, userId);
     res.json({ message: '用户已移除' });
   } catch (error) {
@@ -264,6 +298,15 @@ router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, async (
       return res.status(400).json({ error: '种子选手列表不能为空' });
     }
 
+    // 权限验证：超级管理员可以管理任何活动，活动管理员只能管理自己创建的活动
+    const activityCode = await ActivityCode.getById(id);
+    if (!activityCode) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    if (req.user.role !== 'super_admin' && activityCode.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限管理该活动' });
+    }
+
     await ActivityCode.addSeedsBatch(id, userIds);
 
     res.json({ message: `成功添加 ${userIds.length} 名种子选手` });
@@ -277,6 +320,16 @@ router.post('/codes/:id/seeds', authMiddleware, activityAdminMiddleware, async (
 router.delete('/codes/:id/seeds/:userId', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id, userId } = req.params;
+
+    // 权限验证：超级管理员可以管理任何活动，活动管理员只能管理自己创建的活动
+    const activityCode = await ActivityCode.getById(id);
+    if (!activityCode) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    if (req.user.role !== 'super_admin' && activityCode.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限管理该活动' });
+    }
+
     await ActivityCode.removeSeed(id, userId);
     res.json({ message: '种子选手已移除' });
   } catch (error) {
@@ -327,6 +380,11 @@ router.post('/codes/:id/invite', authMiddleware, activityAdminMiddleware, async 
       return res.status(404).json({ error: '活动代码不存在' });
     }
 
+    // 权限验证：超级管理员可以管理任何活动，活动管理员只能管理自己创建的活动
+    if (req.user.role !== 'super_admin' && code.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限管理该活动' });
+    }
+
     // 创建邀请码
     const invite = await ActivityInvite.create(id, req.user.id, maxUses || 1);
 
@@ -356,6 +414,16 @@ router.post('/codes/:id/invite', authMiddleware, activityAdminMiddleware, async 
 router.get('/codes/:id/invites', authMiddleware, activityAdminMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 权限验证：超级管理员可以查看任何活动，活动管理员只能查看自己创建的活动
+    const code = await ActivityCode.getById(id);
+    if (!code) {
+      return res.status(404).json({ error: '活动代码不存在' });
+    }
+    if (req.user.role !== 'super_admin' && code.created_by !== req.user.id) {
+      return res.status(403).json({ error: '无权限查看该活动' });
+    }
+
     const invites = await ActivityInvite.getByActivityCodeId(id);
     res.json({ invites });
   } catch (error) {
