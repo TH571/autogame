@@ -49,6 +49,12 @@
           </li>
         </ul>
         <div class="d-flex align-items-center">
+          <button class="btn btn-outline-light btn-sm me-2 position-relative admin-only" style="display: none;" id="notificationBtn" onclick="showNotifications()">
+            <i class="bi bi-bell"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationBadge" style="display: none;">
+              0
+            </span>
+          </button>
           <span class="navbar-text me-3" id="userInfo"></span>
           <button class="btn btn-outline-light btn-sm me-2" onclick="showProfileModal()">
             <i class="bi bi-person-circle"></i> 个人中心
@@ -951,8 +957,31 @@
     </div>
   </div>
 
+  <!-- 通知模态框 -->
+  <div class="modal fade" id="notificationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title"><i class="bi bi-bell"></i> 系统通知</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="list-group list-group-flush" id="notificationList">
+            <!-- 通知列表将在这里生成 -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" onclick="markAllNotificationsAsRead()">
+            <i class="bi bi-check-all"></i> 全部标记为已读
+          </button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="/js/app.js?v=20260318047"></script>
+  <script src="/js/app.js?v=20260318049"></script>
 </body>
 </html>

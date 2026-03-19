@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const TeamRebuildRequest = require('../models/TeamRebuildRequest');
+const AdminNotification = require('../models/AdminNotification');
 const TeamBuilder = require('../utils/TeamBuilder');
 const { authMiddleware, activityAdminMiddleware } = require('../middleware/auth');
 
@@ -21,6 +22,26 @@ router.post('/requests', authMiddleware, async (req, res) => {
 
     const result = await TeamRebuildRequest.create(req.user.id, activityCode, date, timeSlot, reason || '');
 
+    // 【新增】获取活动管理员 ID 并发送通知
+    const adminId = await AdminNotification.getActivityAdminId(activityCode);
+    if (adminId) {
+      // 获取用户信息
+      const User = require('../models/User');
+      const userData = await User.findById(req.user.id);
+      const userName = userData ? userData.name : '用户';
+
+      // 创建通知
+      await AdminNotification.create(
+        adminId,
+        req.user.id,
+        '组队请求通知',
+        `用户 ${userName} 修改了 ${date} ${getTimeSlotText(timeSlot)} 的时间申报，请求重新组队。理由：${reason || '用户修改了时间申报'}`,
+        'rebuild_request',
+        result.lastInsertRowid,
+        'team_rebuild_request'
+      );
+    }
+
     res.status(201).json({
       message: '组队请求已提交，请等待管理员审批',
       requestId: result.lastInsertRowid
@@ -28,6 +49,47 @@ router.post('/requests', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('创建组队请求错误:', error);
     res.status(500).json({ error: '创建请求失败' });
+  }
+});
+
+// 辅助函数：获取时间段文本
+function getTimeSlotText(slot) {
+  const map = { 1: '下午', 2: '晚上', 3: '下午 + 晚上' };
+  return map[slot] || '未知';
+}
+
+// 获取管理员的通知
+router.get('/notifications', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const notifications = await AdminNotification.getAll(req.user.id);
+    const unreadCount = await AdminNotification.getUnreadCount(req.user.id);
+    res.json({ notifications, unreadCount });
+  } catch (error) {
+    console.error('获取通知错误:', error);
+    res.status(500).json({ error: '获取通知失败' });
+  }
+});
+
+// 标记通知为已读
+router.post('/notifications/:id/read', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await AdminNotification.markAsRead(id);
+    res.json({ message: '通知已标记为已读' });
+  } catch (error) {
+    console.error('标记通知错误:', error);
+    res.status(500).json({ error: '标记通知失败' });
+  }
+});
+
+// 批量标记所有通知为已读
+router.post('/notifications/read-all', authMiddleware, activityAdminMiddleware, async (req, res) => {
+  try {
+    await AdminNotification.markAllAsRead(req.user.id);
+    res.json({ message: '所有通知已标记为已读' });
+  } catch (error) {
+    console.error('标记通知错误:', error);
+    res.status(500).json({ error: '标记通知失败' });
   }
 });
 

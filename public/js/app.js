@@ -3173,9 +3173,92 @@ async function submitRebuildRequestFromBtn() {
 
   // 更新原始数据
   window.originalAvailabilities = JSON.parse(JSON.stringify(selectedAvailabilities));
-  
+
   // 禁用按钮
   disableRebuildButton();
 
   showToast(`已提交 ${successCount} 个时间段的组队请求，请等待管理员审批`, 'success');
+}
+
+// ========== 通知管理 ==========
+
+// 加载通知数量
+async function loadNotificationCount() {
+  try {
+    const data = await apiRequest('/team-rebuild/notifications');
+    const badge = document.getElementById('notificationBadge');
+    if (badge && data.unreadCount > 0) {
+      badge.textContent = data.unreadCount;
+      badge.style.display = 'inline-block';
+    } else if (badge) {
+      badge.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('加载通知数量失败:', error);
+  }
+}
+
+// 显示通知列表
+async function showNotifications() {
+  try {
+    const data = await apiRequest('/team-rebuild/notifications');
+    const notifications = data.notifications || [];
+
+    const list = document.getElementById('notificationList');
+    if (notifications.length === 0) {
+      list.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-bell-slash" style="font-size: 3rem;"></i><p class="mt-3">暂无通知</p></div>';
+    } else {
+      list.innerHTML = notifications.map(n => `
+        <div class="list-group-item list-group-item-action ${n.is_read ? '' : 'bg-light'}" onclick="markNotificationAsRead(${n.id})" style="cursor: pointer;">
+          <div class="d-flex w-100 justify-content-between align-items-start">
+            <div>
+              <h6 class="mb-1 ${n.is_read ? 'text-muted' : 'text-primary fw-bold'}">
+                ${n.is_read ? '' : '🔔 '}${n.title}
+              </h6>
+              <p class="mb-1 small">${n.content}</p>
+              <small class="text-muted">
+                <i class="bi bi-person"></i> ${n.user_name} · ${formatDateCN(n.created_at)}
+              </small>
+            </div>
+            ${!n.is_read ? '<span class="badge bg-primary">未读</span>' : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('notificationModal'));
+    modal.show();
+  } catch (error) {
+    console.error('加载通知失败:', error);
+    showToast('加载通知失败：' + error.message, 'danger');
+  }
+}
+
+// 标记通知为已读
+async function markNotificationAsRead(id) {
+  try {
+    await apiRequest(`/team-rebuild/notifications/${id}/read`, { method: 'POST' });
+    // 重新加载通知列表
+    showNotifications();
+    // 更新通知数量
+    loadNotificationCount();
+  } catch (error) {
+    console.error('标记通知失败:', error);
+  }
+}
+
+// 全部标记为已读
+async function markAllNotificationsAsRead() {
+  try {
+    await apiRequest('/team-rebuild/notifications/read-all', { method: 'POST' });
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('notificationModal'));
+    modal.hide();
+    // 更新通知数量
+    loadNotificationCount();
+    showToast('所有通知已标记为已读', 'success');
+  } catch (error) {
+    console.error('标记通知失败:', error);
+    showToast('标记失败：' + error.message, 'danger');
+  }
 }
