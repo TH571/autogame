@@ -3008,6 +3008,9 @@ async function loadRebuildRequests() {
     const tbody = document.getElementById('rebuildRequestsList');
     const noRequestsMsg = document.getElementById('noRequestsMessage');
     const badge = document.getElementById('pendingRequestsBadge');
+    const selectAllCheckbox = document.getElementById('selectAllRequests');
+    const batchApproveBtn = document.getElementById('batchApproveBtn');
+    const batchRejectBtn = document.getElementById('batchRejectBtn');
 
     // 更新徽章
     if (badge) {
@@ -3015,16 +3018,35 @@ async function loadRebuildRequests() {
       badge.style.display = requests.length > 0 ? 'inline' : 'none';
     }
 
+    // 控制批量操作按钮显示
+    const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'activity_admin';
+    if (isAdmin && requests.length > 0) {
+      selectAllCheckbox.disabled = false;
+      batchApproveBtn.style.display = 'inline-block';
+      batchRejectBtn.style.display = 'inline-block';
+      batchApproveBtn.disabled = false;
+      batchRejectBtn.disabled = false;
+    } else {
+      selectAllCheckbox.disabled = true;
+      batchApproveBtn.style.display = 'none';
+      batchRejectBtn.style.display = 'none';
+    }
+
     if (requests.length === 0) {
       tbody.innerHTML = '';
       noRequestsMsg.style.display = 'block';
+      selectAllCheckbox.checked = false;
       return;
     }
 
     noRequestsMsg.style.display = 'none';
+    selectAllCheckbox.checked = false;
 
     tbody.innerHTML = requests.map(r => `
-      <tr>
+      <tr data-request-id="${r.id}">
+        <td>
+          <input type="checkbox" class="request-checkbox" value="${r.id}" onchange="updateBatchButtons()">
+        </td>
         <td>${r.id}</td>
         <td>${r.user_name}<br><small class="text-muted">${r.user_email}</small></td>
         <td><span class="badge bg-primary">${r.activity_code}</span></td>
@@ -3045,6 +3067,113 @@ async function loadRebuildRequests() {
   } catch (error) {
     console.error('加载组队请求失败:', error);
     showToast('加载失败：' + error.message, 'danger');
+  }
+}
+
+// 全选/取消全选
+function toggleSelectAllRequests() {
+  const selectAllCheckbox = document.getElementById('selectAllRequests');
+  const checkboxes = document.querySelectorAll('.request-checkbox');
+  
+  checkboxes.forEach(cb => {
+    cb.checked = selectAllCheckbox.checked;
+  });
+  
+  updateBatchButtons();
+}
+
+// 更新批量操作按钮状态
+function updateBatchButtons() {
+  const checkboxes = document.querySelectorAll('.request-checkbox:checked');
+  const batchApproveBtn = document.getElementById('batchApproveBtn');
+  const batchRejectBtn = document.getElementById('batchRejectBtn');
+  
+  const hasSelected = checkboxes.length > 0;
+  
+  if (batchApproveBtn) batchApproveBtn.disabled = !hasSelected;
+  if (batchRejectBtn) batchRejectBtn.disabled = !hasSelected;
+}
+
+// 批量批准
+async function batchApproveRequests() {
+  const checkboxes = document.querySelectorAll('.request-checkbox:checked');
+  const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  if (selectedIds.length === 0) {
+    showToast('请先选择要批准的请求', 'warning');
+    return;
+  }
+  
+  if (!confirm(`确定要批准选中的 ${selectedIds.length} 个请求吗？\n批准后将立即执行重新组队。`)) return;
+  
+  try {
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const id of selectedIds) {
+      try {
+        await apiRequest(`/team-rebuild/requests/${id}/approve`, {
+          method: 'POST',
+          body: JSON.stringify({ adminNote: '管理员批量批准' })
+        });
+        successCount++;
+      } catch (error) {
+        console.error(`批准请求 ${id} 失败:`, error);
+        failCount++;
+      }
+    }
+    
+    let message = `批量处理完成！\n✅ 批准：${successCount} 个`;
+    if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
+    
+    showToast(message, successCount > 0 ? 'success' : 'danger');
+    
+    // 刷新列表
+    loadRebuildRequests();
+  } catch (error) {
+    showToast('批量处理失败：' + error.message, 'danger');
+  }
+}
+
+// 批量拒绝
+async function batchRejectRequests() {
+  const checkboxes = document.querySelectorAll('.request-checkbox:checked');
+  const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  if (selectedIds.length === 0) {
+    showToast('请先选择要拒绝的请求', 'warning');
+    return;
+  }
+  
+  const reason = prompt('请输入拒绝原因（所有选中的请求将使用相同的原因）:', '暂时不需要重新组队');
+  if (reason === null) return; // 用户取消
+  
+  try {
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const id of selectedIds) {
+      try {
+        await apiRequest(`/team-rebuild/requests/${id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ adminNote: reason })
+        });
+        successCount++;
+      } catch (error) {
+        console.error(`拒绝请求 ${id} 失败:`, error);
+        failCount++;
+      }
+    }
+    
+    let message = `批量处理完成！\n✅ 拒绝：${successCount} 个`;
+    if (failCount > 0) message += `\n❌ 失败：${failCount} 个`;
+    
+    showToast(message, successCount > 0 ? 'success' : 'danger');
+    
+    // 刷新列表
+    loadRebuildRequests();
+  } catch (error) {
+    showToast('批量处理失败：' + error.message, 'danger');
   }
 }
 
