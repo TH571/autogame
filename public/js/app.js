@@ -342,6 +342,20 @@ async function loadAvailabilityDates() {
 
     console.log('[loadAvailabilityDates] API 返回数据:', datesData.dates.length, '天');
 
+    // 获取已组队的活动列表
+    const activitiesData = await apiRequest('/team/activities');
+    const activities = activitiesData.activities || [];
+    
+    // 构建已组队的时间段映射
+    const scheduledMap = {};
+    activities.forEach(activity => {
+      const key = `${activity.date}-${activity.time_slot}`;
+      scheduledMap[key] = {
+        memberCount: activity.memberCount,
+        members: activity.members
+      };
+    });
+
     const tbody = document.getElementById('availabilityBody');
     tbody.innerHTML = '';
     selectedAvailabilities = [];
@@ -356,6 +370,10 @@ async function loadAvailabilityDates() {
       const fullDay = item.slots[3];
       const hasAfternoon = afternoon.exists || fullDay.exists;
       const hasEvening = evening.exists || fullDay.exists;
+      
+      // 检查是否已组队
+      const afternoonScheduled = scheduledMap[`${item.date}-1`];
+      const eveningScheduled = scheduledMap[`${item.date}-2`];
 
       console.log(`[loadAvailabilityDates] ${item.date}: 下午=${hasAfternoon ? '✓' : '✗'}, 晚上=${hasEvening ? '✓' : '✗'}`);
 
@@ -363,20 +381,26 @@ async function loadAvailabilityDates() {
         <td>${item.date}</td>
         <td>${item.dayOfWeek}</td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox"
-                 data-date="${item.date}" data-slot="1"
-                 ${hasAfternoon ? 'checked' : ''}
-                 ${afternoon.isLocked || fullDay.isLocked ? 'disabled' : ''}
-                 onclick="toggleTimeCheckbox(this)">
-          <label class="form-check-label">下午</label>
+          <div class="d-flex align-items-center justify-content-center">
+            <input type="checkbox" class="form-check-input time-checkbox me-2"
+                   data-date="${item.date}" data-slot="1"
+                   ${hasAfternoon ? 'checked' : ''}
+                   ${afternoon.isLocked || fullDay.isLocked ? 'disabled' : ''}
+                   onclick="toggleTimeCheckbox(this)">
+            <label class="form-check-label">下午</label>
+            ${afternoonScheduled ? `<span class="badge bg-success ms-2" title="已组队 (${afternoonScheduled.memberCount}人)"><i class="bi bi-check-circle"></i> 已组队</span>` : ''}
+          </div>
         </td>
         <td class="text-center">
-          <input type="checkbox" class="form-check-input time-checkbox"
-                 data-date="${item.date}" data-slot="2"
-                 ${hasEvening ? 'checked' : ''}
-                 ${evening.isLocked || fullDay.isLocked ? 'disabled' : ''}
-                 onclick="toggleTimeCheckbox(this)">
-          <label class="form-check-label">晚上</label>
+          <div class="d-flex align-items-center justify-content-center">
+            <input type="checkbox" class="form-check-input time-checkbox me-2"
+                   data-date="${item.date}" data-slot="2"
+                   ${hasEvening ? 'checked' : ''}
+                   ${evening.isLocked || fullDay.isLocked ? 'disabled' : ''}
+                   onclick="toggleTimeCheckbox(this)">
+            <label class="form-check-label">晚上</label>
+            ${eveningScheduled ? `<span class="badge bg-success ms-2" title="已组队 (${eveningScheduled.memberCount}人)"><i class="bi bi-check-circle"></i> 已组队</span>` : ''}
+          </div>
         </td>
         <td>${getStatusBadgeForDay(item)}</td>
       `;
@@ -389,7 +413,7 @@ async function loadAvailabilityDates() {
     });
 
     console.log('[loadAvailabilityDates] selectedAvailabilities 数量:', selectedAvailabilities.length);
-    
+
     // 禁用请求重新组队按钮
     disableRebuildButton();
   } catch (error) {
